@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brechó Post IA</title>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="center">
+  <form id="loginForm" class="card">
+    <h1>Brechó Post IA</h1>
+
+    <label>Email</label>
+    <input type="email" id="loginEmail" required />
+
+    <label>Senha</label>
+    <input type="password" id="loginSenha" required />
+
+    <div id="loginErr" class="error"></div>
+
+    <button type="submit" id="btnLogin">Entrar</button>
+  </form>
+</div>
+
+<!-- APP -->
+<div id="appWrapper" class="hidden">
+  <header>
+    <h2>Brechó Post IA</h2>
+    <button id="logoutBtn">Sair</button>
+  </header>
+
+  <main>
+    <section>
+      <h3>Novo Produto</h3>
+
+      <input type="file" id="foto" accept="image/*" />
+
+      <input type="number" id="preco" placeholder="Preço" />
+      <input type="text" id="tamanho" placeholder="Tamanho" />
+      <textarea id="obs" placeholder="Descrição"></textarea>
+
+      <button id="btnGerar">Gerar Mensagem</button>
+    </section>
+
+    <section id="resultado" class="hidden">
+      <h3>Mensagem</h3>
+      <pre id="msg"></pre>
+      <button id="copiarBtn">Copiar</button>
+    </section>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+
+
+/* ================= STYLE.CSS ================= */
+
+body {
+  font-family: sans-serif;
+  background: #111;
+  color: #fff;
+}
+
+.hidden { display:none; }
+.center {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.card {
+  background:#222;
+  padding:20px;
+  border-radius:10px;
+}
+input, textarea, button {
+  width:100%;
+  margin:8px 0;
+  padding:10px;
+}
+button { cursor:pointer; }
+.error { color:red; }
+
+
+/* ================= APP.JS ================= */
+
+'use strict';
+
+// Firebase
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  projectId: "YOUR_PROJECT",
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Elements
+const loginForm = document.getElementById('loginForm');
+const loginScreen = document.getElementById('loginScreen');
+const appWrapper = document.getElementById('appWrapper');
+const loginErr = document.getElementById('loginErr');
+
+const btnGerar = document.getElementById('btnGerar');
+const resultado = document.getElementById('resultado');
+const msgEl = document.getElementById('msg');
+
+// Auth
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const email = loginEmail.value;
+  const senha = loginSenha.value;
+
+  try {
+    await auth.signInWithEmailAndPassword(email, senha);
+  } catch (err) {
+    loginErr.textContent = 'Erro ao logar';
+  }
+});
+
+// Auth State
+auth.onAuthStateChanged(user => {
+  if (user) {
+    loginScreen.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  } else {
+    loginScreen.classList.remove('hidden');
+    appWrapper.classList.add('hidden');
+  }
+});
+
+// Logout
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  auth.signOut();
+});
+
+// Gerar Mensagem
+btnGerar.addEventListener('click', () => {
+  const preco = document.getElementById('preco').value;
+  const tamanho = document.getElementById('tamanho').value;
+  const obs = document.getElementById('obs').value;
+
+  const prompt = `
+Produto à venda:
+Preço: ${preco}
+Tamanho: ${tamanho}
+Descrição: ${obs}
+
+Crie um texto de venda curto e atrativo.
+  `;
+
+  msgEl.textContent = prompt;
+  resultado.classList.remove('hidden');
+});
+
+// Copiar
+copiarBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(msgEl.textContent);
+});
