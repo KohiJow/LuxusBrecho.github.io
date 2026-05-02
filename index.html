@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Brechó Post IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:none}
+:root{
+--bg:#1c1511;--surface:#241915;--surface-2:#2c201b;--surface-3:#33251f;
+--border:rgba(237,189,140,.16);--border-strong:rgba(237,189,140,.32);
+--text:#fff7ef;--text-muted:#f3c9a0;--text-faint:#b88f71;
+--primary:#f28a3b;--primary-hover:#e1772a;
+--primary-glow:rgba(242,138,59,.25);--primary-sub:rgba(242,138,59,.10);
+--success:#57b58a;--success-bg:rgba(87,181,138,.10);--success-border:rgba(87,181,138,.30);
+--error:#e26d7b;--error-bg:rgba(226,109,123,.10);--error-border:rgba(226,109,123,.30);
+--warning:#f1b15a;--warning-bg:rgba(241,177,90,.10);--warning-border:rgba(241,177,90,.30);
+--sold:#f26b6b;--sold-bg:rgba(242,107,107,.10);--sold-border:rgba(242,107,107,.30);
+--reserved:#f2a94b;--reserved-bg:rgba(242,169,75,.10);--reserved-border:rgba(242,169,75,.30);
+--physical:#a78bfa;--physical-bg:rgba(167,139,250,.10);--physical-border:rgba(167,139,250,.30);
+--shadow-sm:0 1px 3px rgba(0,0,0,.35);--shadow-md:0 4px 20px rgba(0,0,0,.45);
+--shadow-lg:0 14px 54px rgba(0,0,0,.6);
+--r-sm:4px;--r-md:12px;--r-lg:16px;--r-xl:22px;--r-full:9999px;
+--tr:160ms cubic-bezier(.16,1,.3,1);
+--font:'Plus Jakarta Sans',-apple-system,sans-serif;
+--xs:clamp(.72rem,.68rem + .2vw,.8rem);--sm:clamp(.82rem,.78rem + .2vw,.9rem);
+--base:clamp(.9rem,.85rem + .25vw,1rem);--lg:clamp(1rem,.9rem + .5vw,1.2rem);
+}
+[data-theme="light"]{
+--bg:#fff6ed;--surface:#fff0e3;--surface-2:#ffe7d3;--surface-3:#ffe0c6;
+--border:rgba(210,154,101,.22);--border-strong:rgba(210,154,101,.38);
+--text:#3d2514;--text-muted:#8a5a33;--text-faint:#c2986f;
+--primary:#e4712a;--primary-hover:#c85f1e;
+--primary-glow:rgba(228,113,42,.22);--primary-sub:rgba(228,113,42,.10);
+--shadow-sm:0 1px 3px rgba(140,90,40,.10);--shadow-md:0 4px 20px rgba(140,90,40,.14);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100dvh;font-size:var(--base);line-height:1.6;transition:background var(--tr),color var(--tr)}
+.app{max-width:480px;margin:0 auto;padding:0 16px 80px}
+.nav{display:flex;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:4px;margin-bottom:18px;position:sticky;top:8px;z-index:20;box-shadow:var(--shadow-md)}
+.nav-btn{flex:1;padding:9px 0;border:none;border-radius:var(--r-lg);font-family:var(--font);font-size:var(--xs);font-weight:700;cursor:pointer;background:none;color:var(--text-muted);transition:all var(--tr);display:flex;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent}
+.nav-btn.active{background:var(--primary);color:#fff;box-shadow:0 2px 10px var(--primary-glow)}
+.nav-btn .badge{background:var(--sold);color:#fff;border-radius:var(--r-full);font-size:.65rem;font-weight:800;padding:1px 6px;min-width:18px;text-align:center;display:none}
+.nav-btn .badge.on{display:inline-block}
+.header{display:flex;align-items:center;gap:12px;padding:16px 0 14px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.logo{width:38px;height:38px;background:linear-gradient(135deg,var(--primary),#ffd2a3);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 14px var(--primary-glow)}
+.logo svg{color:#fff}
+.header-text h1{font-size:var(--lg);font-weight:800;line-height:1.2}
+.header-text p{font-size:var(--xs);color:var(--text-muted)}
+.header-actions{margin-left:auto;display:flex;gap:6px}
+.icon-btn{width:34px;height:34px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--tr)}
+.icon-btn:hover{border-color:var(--border-strong);color:var(--primary);background:var(--primary-sub)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:18px;margin-bottom:12px;box-shadow:var(--shadow-sm);transition:background var(--tr),border-color var(--tr)}
+.card-header{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0}
+.card-title{font-size:var(--xs);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint)}
+.field{margin-bottom:11px}.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:var(--xs);font-weight:600;color:var(--text-muted);margin-bottom:5px}
+input[type=text],input[type=number],input[type=tel],input[type=password],input[type=email],textarea,select{
+width:100%;padding:10px 13px;background:var(--surface-2);border:1.5px solid var(--border);
+border-radius:var(--r-md);font-family:var(--font);font-size:var(--sm);color:var(--text);
+outline:none;transition:border-color var(--tr),box-shadow var(--tr),background var(--tr);
+-webkit-appearance:none;appearance:none}
+input:focus,textarea:focus{border-color:var(--primary);background:var(--surface-3);box-shadow:0 0 0 3px var(--primary-glow)}
+input::placeholder,textarea::placeholder{color:var(--text-faint)}
+textarea{resize:none;min-height:72px;line-height:1.55}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.input-pre{position:relative}
+.input-pre .pre{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:var(--sm);font-weight:700;color:var(--text-muted);pointer-events:none}
+.input-pre input{padding-left:30px}
+.api-wrap{position:relative}
+.api-wrap input{padding-right:42px;font-family:monospace;font-size:.76rem}
+.api-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-faint);padding:4px;transition:color var(--tr)}
+.api-toggle:hover{color:var(--primary)}
+.info-badge{display:flex;align-items:flex-start;gap:8px;border-radius:var(--r-md);padding:9px 11px;margin-top:9px}
+.info-badge svg{flex-shrink:0;margin-top:2px}
+.info-badge p{font-size:var(--xs);color:var(--text-muted);line-height:1.5}
+.info-badge strong{color:var(--text)}
+.badge-sec{background:var(--primary-sub);border:1px solid var(--border-strong)}.badge-sec svg{color:var(--primary)}
+.badge-warn{background:var(--warning-bg);border:1px solid var(--warning-border)}.badge-warn svg{color:var(--warning)}
+.badge-ok{background:var(--success-bg);border:1px solid var(--success-border)}.badge-ok svg{color:var(--success)}
+
+/* ── Photo zone ── */
+.photo-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.upload-zone{position:relative;border:2px dashed var(--border-strong);border-radius:var(--r-lg);min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer;overflow:hidden;background:var(--surface-2);transition:border-color var(--tr),background var(--tr);text-align:center;padding:20px 14px;grid-column:1/-1}
+.upload-zone:hover{border-color:var(--primary);background:var(--primary-sub)}
+.upload-zone.has-img{padding:0;border-style:solid;border-color:var(--border);min-height:0;grid-column:1/-1}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;padding:0;background:none}
+.upload-zone img{width:100%;max-height:210px;object-fit:cover;border-radius:calc(var(--r-lg) - 2px);display:none}
+.up-ph{pointer-events:none;text-align:center}.up-ph svg{color:var(--text-faint);margin:0 auto 5px}
+.up-ph p{font-size:var(--sm);font-weight:600;color:var(--text-muted)}.up-ph small{font-size:var(--xs);color:var(--text-faint)}
+.rm-photo{position:absolute;top:7px;right:7px;width:26px;height:26px;background:rgba(14,12,20,.78);border:1px solid var(--border-strong);border-radius:var(--r-sm);display:none;align-items:center;justify-content:center;cursor:pointer;z-index:2;color:var(--text-muted);transition:all var(--tr)}
+[data-theme="light"] .rm-photo{background:rgba(244,241,255,.88)}
+.rm-photo:hover{background:var(--error-bg);color:var(--error);border-color:var(--error)}
+.upload-zone.has-img .rm-photo{display:flex}
+/* camera / gallery buttons when no photo */
+.photo-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.photo-btn{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:14px 8px;border:1.5px dashed var(--border-strong);border-radius:var(--r-lg);background:var(--surface-2);cursor:pointer;transition:all var(--tr);overflow:hidden}
+.photo-btn:hover{border-color:var(--primary);background:var(--primary-sub)}
+.photo-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-btn svg{color:var(--text-faint)}
+.photo-btn span{font-size:var(--xs);font-weight:600;color:var(--text-muted);pointer-events:none}
+
+.sec-label{font-size:var(--xs);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin:14px 0 7px}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{padding:5px 12px;border-radius:var(--r-full);border:1.5px solid var(--border);font-size:var(--xs);font-weight:600;color:var(--text-muted);cursor:pointer;transition:all var(--tr);background:var(--surface-2);user-select:none;-webkit-tap-highlight-color:transparent}
+.tag:hover,.tag.active{border-color:var(--primary);color:var(--primary);background:var(--primary-sub)}
+.btn{width:100%;padding:14px;border-radius:var(--r-lg);font-family:var(--font);font-size:var(--sm);font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all var(--tr);-webkit-tap-highlight-color:transparent}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 4px 18px var(--primary-glow)}
+.btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{background:var(--surface-3);color:var(--text-faint);box-shadow:none;cursor:not-allowed;transform:none}
+.btn-ghost{background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);margin-top:8px}
+.btn-ghost:hover{background:var(--surface-3);color:var(--text);border-color:var(--border-strong)}
+.btn-sm{width:auto;padding:7px 14px;font-size:var(--xs);border-radius:var(--r-md)}
+.btn-warn{background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning-border)}
+.btn-warn:hover{background:var(--warning);color:#fff}
+.btn-sold-c{background:var(--success);color:#fff;box-shadow:0 3px 12px rgba(91,179,122,.3)}
+.btn-sold-c:hover{background:#4da36e}
+.btn-cancel{background:var(--error-bg);color:var(--error);border:1px solid var(--error-border)}
+.btn-cancel:hover{background:var(--error);color:#fff}
+.btn-purple{background:var(--physical-bg);color:var(--physical);border:1px solid var(--physical-border)}
+.btn-purple:hover{background:var(--physical);color:#fff}
+.dots{display:flex;gap:5px;align-items:center}
+.dots span{width:6px;height:6px;border-radius:50%;background:#fff;animation:bounce 1.1s ease-in-out infinite}
+.dots span:nth-child(2){animation-delay:.18s}.dots span:nth-child(3){animation-delay:.36s}
+@keyframes bounce{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+.status-bar{border-radius:var(--r-md);padding:9px 13px;font-size:var(--xs);margin-top:9px;display:none;line-height:1.5;text-align:center}
+.status-bar.on{display:block}
+.status-bar.err{background:var(--error-bg);border:1px solid var(--error-border);color:var(--error)}
+.status-bar.warn{background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--warning)}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;box-shadow:var(--shadow-md);display:none;margin-top:12px}
+.result-card.visible{display:block;animation:slideup .3s cubic-bezier(.16,1,.3,1)}
+@keyframes slideup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.result-top{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.result-top svg{flex-shrink:0}.result-top span{font-size:var(--xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.result-top.avail{background:var(--success-bg)}.result-top.avail svg,.result-top.avail span{color:var(--success)}
+.result-body{padding:16px}
+.link-prev{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 13px;margin-bottom:12px}
+.link-prev svg{flex-shrink:0;color:var(--primary)}
+.lt{font-size:var(--xs);color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.lt strong{color:var(--primary);font-weight:700;display:block;margin-bottom:1px}
+.msg-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:13px 15px;font-size:var(--sm);line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;margin-bottom:12px;min-height:56px;user-select:text;cursor:text}
+.hint{font-size:var(--xs);color:var(--text-faint);text-align:center;margin-bottom:12px}
+.divider{height:1px;background:var(--border);margin:13px 0}
+/* ── Histórico ── */
+.hist-empty{text-align:center;padding:40px 20px;color:var(--text-faint)}
+.hist-empty svg{margin:0 auto 12px;display:block;opacity:.35}
+.hist-empty p{font-size:var(--sm);font-weight:600}
+.hist-empty small{font-size:var(--xs)}
+.hist-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow-sm);transition:border-color var(--tr)}
+.hist-item:hover{border-color:var(--border-strong)}
+.hist-item.physical-item{border-color:var(--physical-border);background:var(--physical-bg)}
+.hist-item-top{display:flex;align-items:flex-start;gap:10px}
+.hist-thumb{width:46px;height:46px;border-radius:var(--r-md);object-fit:cover;flex-shrink:0;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:1.3rem;overflow:hidden}
+.hist-thumb img{width:100%;height:100%;object-fit:cover;border-radius:var(--r-md)}
+.hist-info{flex:1;min-width:0}
+.hist-name{font-size:var(--sm);font-weight:700;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-meta{font-size:var(--xs);color:var(--text-muted);margin-top:2px}
+.hist-price{font-size:var(--sm);font-weight:800;color:var(--primary);white-space:nowrap}
+.hist-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-full);font-size:var(--xs);font-weight:700;border:1px solid;margin-top:7px}
+.hist-status.avail{background:var(--success-bg);color:var(--success);border-color:var(--success-border)}
+.hist-status.reserv{background:var(--reserved-bg);color:var(--reserved);border-color:var(--reserved-border)}
+.hist-status.sold-st{background:var(--sold-bg);color:var(--sold);border-color:var(--sold-border)}
+.hist-status.phys{background:var(--physical-bg);color:var(--physical);border-color:var(--physical-border)}
+.hist-actions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.hist-time{font-size:var(--xs);color:var(--text-faint);margin-top:5px}
+/* ── Stats ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px;text-align:center}
+.stat-val{font-size:1.3rem;font-weight:800;line-height:1}
+.stat-lbl{font-size:var(--xs);color:var(--text-muted);margin-top:3px}
+.stat-box.avail .stat-val{color:var(--success)}
+.stat-box.reserv .stat-val{color:var(--reserved)}
+.stat-box.sold-s .stat-val{color:var(--sold)}
+.toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(14px);background:var(--surface-3);border:1px solid var(--border-strong);color:var(--text);padding:9px 17px;border-radius:var(--r-sm);font-size:var(--xs);font-weight:600;opacity:0;pointer-events:none;transition:all .22s ease;white-space:nowrap;z-index:200;box-shadow:var(--shadow-lg)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s}
+.modal-overlay.on{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;padding:22px 18px calc(22px + env(safe-area-inset-bottom,0px));width:100%;max-width:480px;transform:translateY(40px);transition:transform .28s cubic-bezier(.16,1,.3,1)}
+.modal-overlay.on .modal{transform:translateY(0)}
+.modal-title{font-size:var(--base);font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* API key saved badge */
+.api-saved{background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--r-md);padding:8px 12px;font-size:var(--xs);color:var(--success);display:none;align-items:center;gap:6px;margin-top:8px}
+.api-saved.on{display:flex}
+</style>
+
+<!-- LOGIN -->
+<div id="loginScreen" style="display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:24px;background:var(--bg);">
+  <div style="width:100%;max-width:360px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:52px;height:52px;background:linear-gradient(135deg,var(--primary),#ffd2a3);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 6px 20px var(--primary-glow);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </div>
+      <h1 style="font-size:1.4rem;font-weight:800;color:var(--text);">Brechó Post IA</h1>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-top:4px;">Entre com sua conta para continuar</p>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="gloria@email.com" autocomplete="email" inputmode="email" onkeydown="if(event.key==='Enter')document.getElementById('loginSenha').focus()">
+      </div>
+      <div class="field">
+        <label for="loginSenha">Senha</label>
+        <input type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <div id="loginErr" style="font-size:.78rem;color:var(--error);margin-bottom:10px;min-height:18px;text-align:center;"></div>
+      <button id="btnLogin" class="btn btn-primary" onclick="fazerLogin()" type="button">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appWrapper" style="display:none">
+<body>
+<div class="app">
+  <header class="header">
+    <div class="logo">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    </div>
+    <div class="header-text">
+      <h1>Brechó Post IA</h1>
+      <p id="modelLabel">Gemini Flash · Link rastreável</p>
+    </div>
+    <div id="loggedEmail" style="font-size:.7rem;color:var(--text-faint);margin-left:auto;align-self:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="fazerLogout()" type="button" title="Sair" style="margin-right:2px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+      <button class="icon-btn" onclick="toggleTheme()" type="button" aria-label="Tema">
+        <svg id="themeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button class="icon-btn" onclick="toggleConfig()" type="button" aria-label="Config">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Config Card -->
+  <div class="card" id="cfgCard" style="display:none">
+    <div class="card-header"><div class="dot"></div><span class="card-title">Configurações</span></div>
+
+    <!-- Telefone em destaque (principal) -->
+    <div class="field">
+      <label for="telefone">📱 Telefone do brechó <span style="color:var(--primary);font-weight:800;">*</span></label>
+      <input type="tel" id="telefone" placeholder="5511999998888 (com DDI+DDD)" inputmode="numeric">
+      <div class="info-badge badge-sec" style="margin-top:6px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>Este é o número que recebe os clientes interessados. <strong>Só mude isso normalmente.</strong></p>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field"><label for="brecoNome">Nome do brechó</label>
+        <input type="text" id="brecoNome" placeholder="Luxus Brechó" autocomplete="off"></div>
+      <div class="field"><label for="seuNome">Seu nome</label>
+        <input type="text" id="seuNome" placeholder="Ex: João" autocomplete="off"></div>
+    </div>
+    <div class="field"><label for="meuTel">Seu WhatsApp (alertas de venda)</label>
+      <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric"></div>
+
+    <!-- API Key separada, menos proeminente -->
+    <details style="margin-top:14px">
+      <summary style="font-size:var(--xs);color:var(--text-faint);cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;list-style:none;display:flex;align-items:center;gap:5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Chave da API Gemini
+      </summary>
+      <div style="margin-top:10px">
+        <div class="api-wrap">
+          <input type="password" id="apiKey" placeholder="AIzaSy… (deixe vazio para usar modo básico)" autocomplete="off" spellcheck="false">
+          <button class="api-toggle" onclick="toggleApiVis()" type="button">
+            <svg id="eyeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="api-saved" id="apiSavedBadge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Chave salva no dispositivo
+        </div>
+        <div class="info-badge badge-sec" style="margin-top:8px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <p>Salva apenas neste dispositivo. Grátis em <strong>aistudio.google.com</strong></p>
+        </div>
+      </div>
+    </details>
+
+    <button class="btn btn-primary" style="margin-top:14px" onclick="salvarConfig()" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+      Salvar configurações
+    </button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="nav">
+    <button class="nav-btn active" id="tabAnuncio" onclick="switchTab('anuncio')" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Anunciar
+    </button>
+    <button class="nav-btn" id="tabHistorico" onclick="switchTab('historico')" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+      Histórico
+      <span class="badge" id="pendBadge">0</span>
+    </button>
+  </div>
+
+  <!-- ═══ ABA ANUNCIAR ═══ -->
+  <div id="pageAnuncio">
+    <div class="card">
+      <div class="card-header"><div class="dot"></div><span class="card-title">Produto</span></div>
+
+      <!-- Foto: mostra botões câmera/galeria quando não tem foto; mostra preview quando tem -->
+      <div id="photoArea">
+        <!-- Sem foto: dois botões -->
+        <div class="photo-btns" id="photoBtns">
+          <div class="photo-btn">
+            <input type="file" id="fotoCamera" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span>📷 Câmera</span>
+          </div>
+          <div class="photo-btn">
+            <input type="file" id="fotoGaleria" accept="image/*" onchange="handlePhoto(event)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>🖼️ Galeria</span>
+          </div>
+        </div>
+        <!-- Com foto: preview + remover -->
+        <div class="upload-zone has-img" id="previewZone" style="display:none">
+          <img id="preview" alt="Prévia">
+          <button class="rm-photo" onclick="removePhoto()" type="button">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:14px">
+        <div class="field"><label for="preco">Preço (R$) *</label>
+          <div class="input-pre"><span class="pre">R$</span>
+          <input type="number" id="preco" placeholder="0,00" step="0.01" min="0" inputmode="decimal" required></div></div>
+        <div class="field"><label for="tamanho">Tamanho</label>
+          <input type="text" id="tamanho" placeholder="P, M, G, 38…" autocomplete="off"></div>
+      </div>
+
+      <p class="sec-label">Categoria</p>
+      <div class="tags" id="catTags">
+        <div class="tag" onclick="toggleTag(this)">👗 Vestido</div>
+        <div class="tag" onclick="toggleTag(this)">👕 Camisa</div>
+        <div class="tag" onclick="toggleTag(this)">👖 Calça</div>
+        <div class="tag" onclick="toggleTag(this)">👟 Calçado</div>
+        <div class="tag" onclick="toggleTag(this)">👜 Bolsa</div>
+        <div class="tag" onclick="toggleTag(this)">🧥 Casaco</div>
+        <div class="tag" onclick="toggleTag(this)">💍 Acessório</div>
+        <div class="tag" onclick="toggleTag(this)">🩱 Blusa</div>
+        <div class="tag" onclick="toggleTag(this)">🩴 Short</div>
+      </div>
+
+      <p class="sec-label">Estado</p>
+      <div class="tags" id="stateTags">
+        <div class="tag active" onclick="toggleSingle(this,'stateTags')">✨ Ótimo</div>
+        <div class="tag" onclick="toggleSingle(this,'stateTags')">👌 Bom</div>
+        <div class="tag" onclick="toggleSingle(this,'stateTags')">🏷️ Novo c/ etiqueta</div>
+      </div>
+
+      <p class="sec-label">Detalhes extras (opcional)</p>
+      <textarea id="obs" placeholder="Ex: camisa de time, bordado floral, vintage anos 90…"></textarea>
+    </div>
+
+    <div class="status-bar err" id="errBar" role="alert"></div>
+    <div class="status-bar warn" id="retryBar" role="status"></div>
+
+    <button class="btn btn-primary" id="btnGerar" onclick="gerarPost()" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Gerar mensagem com IA
+    </button>
+
+    <!-- Resultado -->
+    <div class="result-card" id="resultCard">
+      <div class="result-top avail">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Mensagem pronta! Salva no histórico.</span>
+      </div>
+      <div class="result-body">
+        <div class="link-prev">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <div class="lt"><strong>Link de rastreio ativo — cliente chega identificando o produto</strong><span id="linkTxt">wa.me/55…</span></div>
+        </div>
+        <div class="msg-box" id="msgResult"></div>
+        <p class="hint">Segure o texto para selecionar · ou use os botões</p>
+        <button class="btn btn-primary" onclick="copiar()" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar mensagem
+        </button>
+        <button class="btn btn-ghost" id="btnShareWpp" onclick="compartilharWpp()" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          Compartilhar com foto no WhatsApp
+        </button>
+        <div class="divider"></div>
+        <button class="btn btn-ghost" onclick="novoAnuncio()" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+          Anunciar outro produto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ABA HISTÓRICO ═══ -->
+  <div id="pageHistorico" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button class="btn btn-purple" onclick="abrirModalVendaFisica()" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Venda Física
+      </button>
+      <button class="btn btn-primary" onclick="fecharCaixaHoje()" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Fechar Caixa
+      </button>
+    </div>
+
+    <div class="stats-row" id="statsRow">
+      <div class="stat-box avail"><div class="stat-val" id="cntDisp">0</div><div class="stat-lbl">Disponíveis</div></div>
+      <div class="stat-box reserv"><div class="stat-val" id="cntRes">0</div><div class="stat-lbl">Reservados</div></div>
+      <div class="stat-box sold-s"><div class="stat-val" id="cntVend">0</div><div class="stat-lbl">Vendidos hoje</div></div>
+    </div>
+    <div id="histList"></div>
+  </div>
+</div><!-- /app -->
+
+<!-- Modal Venda Física -->
+<div class="modal-overlay" id="modalVendaFisica" onclick="fecharModalVF(event)">
+  <div class="modal">
+    <div class="modal-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--physical)" stroke-width="2.2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Registrar Venda Física
+    </div>
+    <div class="field">
+      <label for="vfDesc">Descrição do produto</label>
+      <input type="text" id="vfDesc" placeholder="Ex: Vestido floral P, Bolsa couro bege…" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="vfPreco">Valor (R$) *</label>
+      <div class="input-pre"><span class="pre">R$</span>
+        <input type="number" id="vfPreco" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+      </div>
+    </div>
+    <div class="info-badge" style="background:var(--physical-bg);border:1px solid var(--physical-border);margin-bottom:14px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--physical)" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p style="color:var(--physical)">Será contabilizada no fechamento do caixa de hoje junto com as vendas online.</p>
+    </div>
+    <button class="btn btn-purple" onclick="registrarVendaFisica()" type="button" style="margin-bottom:8px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+      Registrar Venda
+    </button>
+    <button class="btn btn-ghost" onclick="fecharModalVF()" type="button" style="margin-top:0">Cancelar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+</div><!-- /appWrapper -->
+
+<script>
+'use strict';
+
+/* ── Firebase ── */
+const firebaseConfig = {
+  apiKey: "AIzaSyDF-X_HOomeNKoQtOmIN-c9dtTpRyhAmBY",
+  authDomain: "brechobase.firebaseapp.com",
+  projectId: "brechobase",
+  storageBucket: "brechobase.firebasestorage.app",
+  messagingSenderId: "1093839654425",
+  appId: "1:1093839654425:web:d502e779a0a574b4c4a488"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+let currentSellerId = null, currentSellerEmail = null;
+
+auth.onAuthStateChanged(user => {
+  const login = document.getElementById('loginScreen');
+  const app = document.getElementById('appWrapper');
+  if(user){
+    currentSellerId = user.uid;
+    currentSellerEmail = user.email;
+    const el = document.getElementById('loggedEmail');
+    if(el) el.textContent = user.email;
+    login.style.display = 'none';
+    app.style.display = 'block';
+    carregarConfigSalva();
+    loadProductsFromDb();
+  } else {
+    currentSellerId = null;
+    login.style.display = 'flex';
+    app.style.display = 'none';
+    _products = [];
+  }
+});
+
+async function fazerLogin(){
+  const email = (document.getElementById('loginEmail').value||'').trim();
+  const senha = document.getElementById('loginSenha').value||'';
+  const errEl = document.getElementById('loginErr');
+  const btn = document.getElementById('btnLogin');
+  errEl.textContent = '';
+  if(!email||!senha){errEl.textContent='Preencha email e senha.';return;}
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try{
+    await auth.signInWithEmailAndPassword(email, senha);
+  }catch(e){
+    errEl.textContent = (e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')
+      ? 'Email ou senha incorretos.' : 'Erro ao entrar. Tente novamente.';
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+function fazerLogout(){ auth.signOut(); _products = []; }
+
+/* ── Config salva no localStorage ── */
+const CFG_KEY = 'brecho_cfg_v2';
+
+function carregarConfigSalva(){
+  try{
+    const raw = localStorage.getItem(CFG_KEY);
+    if(!raw) return;
+    const cfg = JSON.parse(raw);
+    if(cfg.telefone) document.getElementById('telefone').value = cfg.telefone;
+    if(cfg.brecoNome) document.getElementById('brecoNome').value = cfg.brecoNome;
+    if(cfg.seuNome) document.getElementById('seuNome').value = cfg.seuNome;
+    if(cfg.meuTel) document.getElementById('meuTel').value = cfg.meuTel;
+    if(cfg.apiKey){
+      document.getElementById('apiKey').value = cfg.apiKey;
+      document.getElementById('apiSavedBadge').classList.add('on');
+    }
+  }catch(e){}
+}
+
+function salvarConfig(){
+  const cfg = {
+    telefone: document.getElementById('telefone').value.trim(),
+    brecoNome: document.getElementById('brecoNome').value.trim(),
+    seuNome: document.getElementById('seuNome').value.trim(),
+    meuTel: document.getElementById('meuTel').value.trim(),
+    apiKey: document.getElementById('apiKey').value.trim()
+  };
+  try{
+    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+    const badge = document.getElementById('apiSavedBadge');
+    if(cfg.apiKey) badge.classList.add('on');
+    toast('✅ Configurações salvas!');
+    // fecha o config depois de salvar
+    setTimeout(()=>{ _cfgOpen=false; document.getElementById('cfgCard').style.display='none'; }, 800);
+  }catch(e){ toast('Erro ao salvar.'); }
+}
+
+/* ── Estado global ── */
+let _foto64 = null, _fotoFile = null, _msg = '', _dark = true, _cfgOpen = false, _currentTab = 'anuncio';
+let _products = [];
+const MODELS = ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash-lite','gemini-1.5-flash-latest'];
+
+/* ── Firestore ── */
+async function loadProductsFromDb(){
+  try{
+    const snap = await db.collection('products')
+      .where('brecoOwner','==', currentSellerId)
+      .orderBy('ts','desc').limit(500).get();
+    _products = snap.docs.map(d => ({id:d.id, ...d.data()}));
+  }catch(e){
+    try{
+      const snap2 = await db.collection('products').orderBy('ts','desc').limit(500).get();
+      _products = snap2.docs.map(d => ({id:d.id, ...d.data()}));
+    }catch(e2){ _products=[]; }
+  }
+  updatePendBadge();
+  if(_currentTab==='historico') renderHistory();
+}
+
+async function addProductToDb(product){
+  try{
+    const docRef = await db.collection('products').add(product);
+    product.id = docRef.id;
+    _products.unshift(product);
+  }catch(e){ _products.unshift(product); }
+}
+
+async function updateProductInDb(id, data){
+  try{ await db.collection('products').doc(id).update(data); }catch(e){}
+}
+
+async function addEventToDb(event){
+  try{ await db.collection('events').add(event); }catch(e){}
+}
+
+async function addSaleToDb(sale){
+  try{ await db.collection('sales').add(sale); }catch(e){}
+}
+
+/* ── Tema ── */
+function applyTheme(dark){
+  _dark=dark;
+  dark?document.documentElement.removeAttribute('data-theme'):document.documentElement.setAttribute('data-theme','light');
+  document.getElementById('themeIcon').innerHTML=dark
+    ?'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+    :'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+}
+function toggleTheme(){ applyTheme(!_dark); }
+function toggleConfig(){ _cfgOpen=!_cfgOpen; document.getElementById('cfgCard').style.display=_cfgOpen?'block':'none'; }
+function toggleApiVis(){
+  const inp=document.getElementById('apiKey'); const vis=inp.type==='password'; inp.type=vis?'text':'password';
+  document.getElementById('eyeIcon').innerHTML=vis
+    ?'<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    :'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+/* ── Tabs ── */
+function switchTab(tab){
+  _currentTab=tab;
+  document.getElementById('pageAnuncio').style.display=tab==='anuncio'?'block':'none';
+  document.getElementById('pageHistorico').style.display=tab==='historico'?'block':'none';
+  document.getElementById('tabAnuncio').classList.toggle('active',tab==='anuncio');
+  document.getElementById('tabHistorico').classList.toggle('active',tab==='historico');
+  if(tab==='historico') renderHistory();
+}
+
+/* ── Foto ── */
+function handlePhoto(e){
+  const file = e.target.files[0]; if(!file) return;
+  const ok = ['image/jpeg','image/png','image/webp','image/heic','image/heif'];
+  if(!ok.includes(file.type)&&!/\.(jpg|jpeg|png|webp|heic|heif)$/i.test(file.name)){showErr('Formato não suportado.');return;}
+  if(file.size > 8*1024*1024){showErr('Imagem muito grande. Máximo 8MB.');return;}
+  _fotoFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX=640; let w=img.width,h=img.height;
+      if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      _foto64=c.toDataURL('image/jpeg',0.75);
+      const prev=document.getElementById('preview');
+      prev.src=_foto64; prev.style.display='block';
+      document.getElementById('photoBtns').style.display='none';
+      document.getElementById('previewZone').style.display='block';
+      hideStatus();
+    }; img.src=ev.target.result;
+  }; reader.readAsDataURL(file);
+}
+
+function removePhoto(){
+  _foto64=null; _fotoFile=null;
+  const prev=document.getElementById('preview'); prev.style.display='none'; prev.src='';
+  document.getElementById('photoBtns').style.display='grid';
+  document.getElementById('previewZone').style.display='none';
+  document.getElementById('fotoCamera').value='';
+  document.getElementById('fotoGaleria').value='';
+}
+
+function toggleTag(el){ el.classList.toggle('active'); }
+function toggleSingle(el,gid){ document.querySelectorAll('#'+gid+' .tag').forEach(t=>t.classList.remove('active')); el.classList.add('active'); }
+function getActive(gid){ return Array.from(document.querySelectorAll('#'+gid+' .tag.active')).map(t=>t.textContent.trim()); }
+
+function showErr(m){ const e=document.getElementById('errBar'); e.textContent=m; e.classList.add('on'); }
+function hideErr(){ document.getElementById('errBar').classList.remove('on'); }
+function showRetry(m){ const r=document.getElementById('retryBar'); r.textContent=m; r.classList.add('on'); }
+function hideRetry(){ document.getElementById('retryBar').classList.remove('on'); }
+function hideStatus(){ hideErr(); hideRetry(); }
+function toast(m,ms=2600){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),ms); }
+
+function setLoading(on){
+  const b=document.getElementById('btnGerar'); b.disabled=on;
+  b.innerHTML=on
+    ?'<div class="dots"><span></span><span></span><span></span></div> Gerando…'
+    :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Gerar mensagem com IA';
+}
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+function finalizarDesc(text){
+  if(!text) return '';const t=text.trim();
+  let last=-1; for(let i=t.length-1;i>=0;i--){if('.!?'.includes(t[i])){last=i;break;}}
+  if(last>0&&last<t.length-1) return t.slice(0,last+1);
+  if(last===-1) return t+'.'; return t;
+}
+
+function updatePendBadge(){
+  const pend=_products.filter(p=>p.status!=='sold').length;
+  const el=document.getElementById('pendBadge');
+  el.textContent=pend; el.classList.toggle('on',pend>0);
+}
+
+/* ── Change status ── */
+async function changeStatus(id,newStatus){
+  const p=_products.find(x=>x.id===id); if(!p) return;
+  const oldStatus=p.status;
+  p.status=newStatus;
+  if(newStatus==='sold') p.soldAt=Date.now();
+  await updateProductInDb(id, { status:newStatus, soldAt: p.soldAt||null });
+  await addEventToDb({ productId:id, type:'status_changed', from:oldStatus, to:newStatus,
+    by: currentSellerId||'anon', byEmail: currentSellerEmail||'', at:Date.now() });
+  if(newStatus==='sold'){
+    await addSaleToDb({ productId:id, sellerId: currentSellerId||'anon', sellerEmail: currentSellerEmail||'',
+      valor: p.precoNum||0, brecoNome: p.brecoNome||'', soldAt: p.soldAt, cashoutSent: false });
+  }
+  saveProducts(); renderHistory(); updatePendBadge();
+  if(newStatus==='available') toast('↩️ Produto disponível novamente!');
+  if(newStatus==='reserved') toast('🔒 Marcado como Reservado.');
+  if(newStatus==='sold') dispararAlertaVenda(p);
+}
+
+function saveProducts(){
+  try{ localStorage.setItem('brecho_cache', JSON.stringify(_products.map(p=>({...p,foto64:null})))); }catch(e){}
+}
+
+function dispararAlertaVenda(p){
+  const meuTel=(document.getElementById('meuTel').value||'').trim().replace(/\D/g,'');
+  const meuNome=(document.getElementById('seuNome').value||'').trim()||'Vendedor';
+  const now=new Date();
+  const isPhysical = p.type==='physical';
+  const msg='🧾 *VENDA REGISTRADA — '+(p.brecoNome||'Brechó')+'*\n\n'
+    +(isPhysical?'🏪 Venda física\n':'')
+    +'📦 Produto: '+(p.emoji||'📦')+' '+(p.cats?.join('/')||'Peça')+(p.tam?' ('+p.tam+')':'')
+    +'\n💰 Valor: R$ '+p.precoStr
+    +'\n🏷️ Estado: '+(p.estLabel||'')
+    +'\n👤 Vendedor: '+meuNome
+    +'\n🕐 '+now.toLocaleDateString('pt-BR')+' às '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(meuTel){
+    setTimeout(()=>window.open('https://wa.me/55'+meuTel+'?text='+encodeURIComponent(msg),'_blank','noopener,noreferrer'),600);
+  } else {
+    setTimeout(()=>{ toast('⚠️ Configure seu WhatsApp nas ⚙️ para receber alertas.',4000); if(!_cfgOpen)toggleConfig(); },500);
+  }
+}
+
+/* ── Modal venda física ── */
+function abrirModalVendaFisica(){
+  document.getElementById('modalVendaFisica').classList.add('on');
+  setTimeout(()=>document.getElementById('vfDesc').focus(), 200);
+}
+function fecharModalVF(e){
+  if(e && e.target !== document.getElementById('modalVendaFisica')) return;
+  document.getElementById('modalVendaFisica').classList.remove('on');
+}
+
+async function registrarVendaFisica(){
+  const desc = (document.getElementById('vfDesc').value||'').trim();
+  const precoV = document.getElementById('vfPreco').value;
+  const preco = parseFloat(precoV);
+  if(!desc){ toast('⚠️ Informe uma descrição.'); return; }
+  if(!precoV||isNaN(preco)||preco<=0){ toast('⚠️ Informe um valor válido.'); return; }
+
+  const nome=(document.getElementById('brecoNome').value||'').trim()||'Brechó';
+  const precoStr = preco.toFixed(2).replace('.',',');
+  const now = Date.now();
+
+  const product = {
+    ts: now, emoji: '🏪', cats: [desc], estado: [], estLabel: 'Venda física', tam: '',
+    obs: '', precoNum: preco, precoStr, link: '', msg: '',
+    foto64: null, brecoNome: nome, brecoOwner: currentSellerId||'anon',
+    sellerEmail: currentSellerEmail||'',
+    status: 'sold', soldAt: now, cashoutSent: false,
+    type: 'physical'
+  };
+
+  await addProductToDb(product);
+  await addSaleToDb({ productId: product.id, sellerId: currentSellerId||'anon',
+    sellerEmail: currentSellerEmail||'', valor: preco, brecoNome: nome, soldAt: now,
+    cashoutSent: false, type: 'physical' });
+
+  updatePendBadge();
+  document.getElementById('vfDesc').value = '';
+  document.getElementById('vfPreco').value = '';
+  document.getElementById('modalVendaFisica').classList.remove('on');
+  toast('🏪 Venda física registrada! R$ '+precoStr);
+  renderHistory();
+}
+
+/* ── Render histórico ── */
+function renderHistory(){
+  const list=document.getElementById('histList');
+  const hoje = Date.now();
+  const vendasHoje = _products.filter(p=>p.status==='sold' && ehHoje(p.soldAt));
+  const disp=_products.filter(p=>p.status==='available').length;
+  const res=_products.filter(p=>p.status==='reserved').length;
+  document.getElementById('cntDisp').textContent=disp;
+  document.getElementById('cntRes').textContent=res;
+  document.getElementById('cntVend').textContent=vendasHoje.length;
+
+  if(!_products.length){
+    list.innerHTML='<div class="hist-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="3"/></svg><p>Nenhum produto ainda</p><small>Gere um anúncio na aba Anunciar</small></div>';
+    return;
+  }
+
+  const sorted=[..._products].sort((a,b)=>{
+    const ord={available:0,reserved:1,sold:2};
+    if(ord[a.status]!==ord[b.status]) return ord[a.status]-ord[b.status];
+    return b.ts-a.ts;
+  });
+
+  list.innerHTML=sorted.map(p=>{
+    const isPhysical = p.type==='physical';
+    const statusClass=isPhysical?'phys':p.status==='available'?'avail':p.status==='reserved'?'reserv':'sold-st';
+    const statusLabel=isPhysical?'🏪 Venda Física':p.status==='available'?'● Disponível':p.status==='reserved'?'● Reservado':'✓ Vendido';
+    const d=new Date(p.ts);
+    const hora=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const data=d.toLocaleDateString('pt-BR');
+    const thumbHtml=p.foto64
+      ?'<div class="hist-thumb"><img src="'+p.foto64+'" alt=""></div>'
+      :'<div class="hist-thumb" style="font-size:1.4rem">'+(p.emoji||'📦')+'</div>';
+
+    let actionsHtml='';
+    if(!isPhysical){
+      if(p.status==='available'){
+        actionsHtml='<button class="btn btn-sm btn-warn" onclick="changeStatus(\''+p.id+'\',\'reserved\')" type="button">🔒 Reservar</button><button class="btn btn-sm btn-sold-c" onclick="changeStatus(\''+p.id+'\',\'sold\')" type="button">✓ Confirmar Venda</button>';
+      } else if(p.status==='reserved'){
+        actionsHtml='<button class="btn btn-sm btn-cancel" onclick="changeStatus(\''+p.id+'\',\'available\')" type="button">✕ Cancelar Reserva</button><button class="btn btn-sm btn-sold-c" onclick="changeStatus(\''+p.id+'\',\'sold\')" type="button">✓ Confirmar Venda</button>';
+      } else {
+        actionsHtml='<button class="btn btn-sm btn-cancel" onclick="changeStatus(\''+p.id+'\',\'available\')" type="button">↩ Cancelar Venda</button>';
+      }
+    } else {
+      actionsHtml='<button class="btn btn-sm btn-cancel" onclick="removerVendaFisica(\''+p.id+'\')" type="button">🗑 Remover</button>';
+    }
+
+    const itemClass = isPhysical ? 'hist-item physical-item' : 'hist-item';
+    return '<div class="'+itemClass+'"><div class="hist-item-top">'+thumbHtml+'<div class="hist-info"><div class="hist-name">'+(p.emoji||'')+' '+(p.cats.join(', ')||'Produto')+(p.tam?' · '+p.tam:'')+'</div><div class="hist-meta">'+(p.brecoNome||'Brechó')+(p.estLabel?' · '+p.estLabel:'')+'</div><div class="hist-price">R$ '+p.precoStr+'</div></div></div><div class="hist-status '+statusClass+'">'+statusLabel+'</div><div class="hist-time">'+data+' às '+hora+'</div><div class="hist-actions">'+actionsHtml+'</div></div>';
+  }).join('');
+}
+
+async function removerVendaFisica(id){
+  if(!confirm('Remover esta venda física?')) return;
+  _products = _products.filter(p=>p.id!==id);
+  try{ await db.collection('products').doc(id).delete(); }catch(e){}
+  renderHistory(); updatePendBadge();
+  toast('🗑 Venda removida.');
+}
+
+/* ── API Gemini ── */
+async function callOnce(key,model,parts){
+  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);
+  const ctrl=new AbortController(); const tid=setTimeout(()=>ctrl.abort(),35000);
+  let resp;
+  try{
+    resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts}],generationConfig:{maxOutputTokens:600,temperature:0.95,topP:0.95,stopSequences:['---','###']}}),
+      signal:ctrl.signal});
+  }catch(e){ clearTimeout(tid); throw Object.assign(new Error(e.name==='AbortError'?'TIMEOUT':'NETWORK'),{code:e.name==='AbortError'?'TIMEOUT':'NETWORK'}); }
+  clearTimeout(tid);
+  const body=await resp.json().catch(()=>({}));
+  if(resp.status===429){ const rd=body?.error?.details?.find(d=>d['@type']?.includes('RetryInfo'))?.retryDelay; throw Object.assign(new Error('rate_limit'),{code:429,retryMs:rd?(parseInt(rd)||5)*1000:null}); }
+  if(!resp.ok) throw Object.assign(new Error('http_'+resp.status),{code:resp.status});
+  return body?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||null;
+}
+
+async function callGemini(key,prompt,imgB64){
+  if(!key.startsWith('AIza')||key.length<30) throw new Error('Chave inválida. Verifique em aistudio.google.com.');
+  const parts=[{text:prompt}];
+  if(imgB64){ const m=imgB64.match(/^data:(image\/[\w]+);base64,(.+)$/s); if(m) parts.push({inline_data:{mime_type:m[1],data:m[2]}}); }
+  const names={'gemini-2.5-flash':'Gemini 2.5 Flash','gemini-2.5-flash-lite':'Gemini 2.5 Flash Lite','gemini-2.0-flash-lite':'Gemini 2.0 Flash Lite','gemini-1.5-flash-latest':'Gemini 1.5 Flash'};
+  for(let mi=0;mi<MODELS.length;mi++){
+    const model=MODELS[mi];
+    for(let at=1;at<=3;at++){
+      try{
+        const r=await callOnce(key,model,parts);
+        document.getElementById('modelLabel').textContent=(names[model]||model)+' · Firebase';
+        hideRetry(); return r;
+      }catch(err){
+        if(err.code===429){ if(at<3){ const w=err.retryMs?Math.ceil(err.retryMs/1000)+2:at*8; showRetry('⏳ Limite atingido. Aguardando '+w+'s… ('+at+'/3)'); await sleep(w*1000); continue; } showRetry('↪️ Trocando modelo…'); await sleep(1500); break; }
+        if(err.code===404||err.code===400) break;
+        if(err.code===403) throw new Error('Chave sem permissão. Verifique no AI Studio.');
+        if(err.code==='TIMEOUT'){ if(at<3){ showRetry('⏳ Sem resposta, tentando… ('+at+'/3)'); await sleep(3000); continue; } break; }
+        break;
+      }
+    }
+  }
+  hideRetry(); throw new Error('Nenhum modelo disponível. Usando descrição padrão.');
+}
+
+/* ── Link com identificação do produto ── */
+function buildLink(tel, nome, cats, precoStr, tam, prodCod){
+  const t = tel.replace(/\D/g,'').slice(0,15); if(!t) return null;
+  const catLabel = cats && cats.length ? cats[0].replace(/^\S+\s/,'') : 'peça';
+  const tamPart = tam ? ' tamanho '+tam : '';
+  const pricePart = precoStr ? ' R$ '+precoStr : '';
+  const nomePart = nome ? ' do '+nome.slice(0,30) : '';
+  const codPart = prodCod ? ' [#'+prodCod+']' : '';
+  const txt = 'Oi! Vi a '+catLabel+tamPart+pricePart+nomePart+codPart+' e tenho interesse 😊';
+  return 'https://wa.me/'+t+'?text='+encodeURIComponent(txt);
+}
+
+function descLocal(cats,estado,tam,obs){
+  const cat=cats.length?cats[0].replace(/^\S+\s/,''):'peça';
+  const est=estado.length?estado[0].replace(/^\S+\s/,''):'bom estado';
+  return cat+(tam?' ('+tam+')':'')+' em '+est+'.'+(obs?' '+obs+'.':'')+' Peça selecionada com cuidado e pronta para nova dona. Aproveita antes que voa! 🛍️';
+}
+
+/* ── Gerar post ── */
+async function gerarPost(){
+  hideStatus();
+  const key=(document.getElementById('apiKey').value||'').trim();
+  const tel=(document.getElementById('telefone').value||'').trim();
+  const nome=(document.getElementById('brecoNome').value||'').trim().slice(0,60)||'Brechó';
+  const meu=(document.getElementById('seuNome').value||'').trim().slice(0,40);
+  const precoV=document.getElementById('preco').value;
+  const tam=(document.getElementById('tamanho').value||'').trim().slice(0,20);
+  const obs=(document.getElementById('obs').value||'').trim().slice(0,200);
+  const cats=getActive('catTags');
+  const estado=getActive('stateTags');
+  const preco=parseFloat(precoV);
+
+  if(!precoV||isNaN(preco)||preco<0||preco>99999){showErr('⚠️ Informe um preço válido.');return;}
+  if(!cats.length){showErr('⚠️ Selecione pelo menos uma categoria.');return;}
+  if(!tel){showErr('⚠️ Configure o telefone da loja (⚙️).');if(!_cfgOpen)toggleConfig();return;}
+
+  const precoStr=preco.toFixed(2).replace('.',',');
+  const _prodCod=Date.now().toString(36).slice(-3).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();
+  const link=buildLink(tel, nome, cats, precoStr, tam, _prodCod);
+  if(!link){showErr('⚠️ Telefone inválido. Use apenas números com DDD.');return;}
+
+  setLoading(true);
+
+  let desc='';
+  if(key){
+    const hasImg=!!_foto64;
+    const prompt='Você é a vendedora mais animada e carismática do brechó "'+nome+'", escrevendo um post de produto pra mandar no grupo do WhatsApp.\n\nProduto: '+(cats.join('/')||'peça')+' | Estado: '+(estado.join('/')||'bom')+' | Tamanho: '+(tam||'?')+' | Obs: '+(obs||'nenhuma')+'\n'+(hasImg?'Descreva APENAS o que for claramente visível na imagem (cor, comprimento, tipo de peça). Não invente estampas, tecidos ou marcas que não estejam óbvios.':'')+'\n\nEscreva 4 frases de anúncio, nesta ordem:\n- Frase 1: descreva a peça com cor, estilo e detalhes'+(hasImg?' baseada SOMENTE no que você vê na imagem':'')+'.\n- Frase 2: destaque o estado de conservação de forma positiva.\n- Frase 3: diga pra quem cai bem e em qual ocasião.\n- Frase 4: convite animado pra reservar.\n\nREGRA MAIS IMPORTANTE: cada frase DEVE estar completamente terminada — nunca corte no meio de uma palavra ou ideia.\nTom: descontraído, engraçadinho, brasileiro, como amiga animada.\nMáximo 2 emojis. NÃO mencione preço. NÃO use markdown, bullets ou prefácio.\n\nRESPONDA APENAS com as 4 frases, sem nenhum texto extra.';
+    try{ const r=await callGemini(key,prompt,_foto64); desc=r||descLocal(cats,estado,tam,obs); }
+    catch(err){ showErr(err.message); desc=descLocal(cats,estado,tam,obs); }
+  } else { desc=descLocal(cats,estado,tam,obs); }
+
+  const estLabel=estado.length?estado[0].replace(/^\S+\s/,''):'';
+  const emoji=cats.length?cats[0].split(' ')[0]:'📦';
+  const tamStr=tam?'\nTamanho: *'+tam+'*':'';
+
+  _msg=emoji+' *'+nome+'*\n\n'+desc+'\n\n💰 *R$ '+precoStr+'*'+tamStr+'\n🏷️ '+estLabel+'\n\n👉 Clique para reservar:\n'+link;
+
+  const product={
+    ts:Date.now(), emoji, cats, estado, estLabel, tam, obs,
+    precoNum:preco, precoStr, link, msg:_msg,
+    foto64:_foto64||null,
+    prodCod:_prodCod,
+    brecoNome:nome, brecoOwner: currentSellerId||'anon', sellerEmail: currentSellerEmail||'',
+    status:'available', soldAt:null, cashoutSent:false, type:'online'
+  };
+
+  await addProductToDb(product);
+  updatePendBadge();
+
+  document.getElementById('msgResult').textContent=_msg;
+  document.getElementById('linkTxt').textContent=link.replace('https://','');
+
+  // Atualiza o botão de share dependendo do suporte
+  const shareBtn = document.getElementById('btnShareWpp');
+  if(_fotoFile && navigator.canShare){
+    shareBtn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> Compartilhar com foto no WhatsApp';
+  } else {
+    shareBtn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> Compartilhar no WhatsApp';
+  }
+
+  const card=document.getElementById('resultCard');
+  card.classList.add('visible');
+  setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
+  setLoading(false);
+}
+
+function copiar(){
+  if(!_msg) return;
+  if(navigator.clipboard?.writeText){ navigator.clipboard.writeText(_msg).then(()=>toast('✅ Copiado!')).catch(fallbackCopy); }
+  else fallbackCopy();
+}
+function fallbackCopy(){
+  const el=document.createElement('textarea'); el.value=_msg; el.style.cssText='position:fixed;opacity:0;';
+  document.body.appendChild(el); el.select();
+  try{ document.execCommand('copy'); toast('✅ Copiado!'); }catch{ toast('Selecione e copie manualmente.'); }
+  document.body.removeChild(el);
+}
+
+/* ── Compartilhar com foto via Web Share API ── */
+async function compartilharWpp(){
+  if(!_msg) return;
+
+  // Tenta Web Share com imagem (melhor experiência mobile)
+  if(_fotoFile && navigator.share && navigator.canShare){
+    // Cria file redimensionado para compartilhar
+    try{
+      // Converte base64 de volta para File para o share
+      const res = await fetch(_foto64);
+      const blob = await res.blob();
+      const shareFile = new File([blob], 'produto.jpg', {type:'image/jpeg'});
+      const shareData = { text: _msg, files: [shareFile] };
+      if(navigator.canShare(shareData)){
+        await navigator.share(shareData);
+        toast('📤 Compartilhado!');
+        return;
+      }
+    }catch(e){
+      if(e.name==='AbortError') return; // usuário cancelou
+      // fallback para share só texto
+    }
+  }
+
+  // Fallback: share só texto
+  if(navigator.share){
+    try{
+      await navigator.share({ text: _msg });
+      toast('📤 Compartilhado!');
+      return;
+    }catch(e){ if(e.name==='AbortError') return; }
+  }
+
+  // Fallback final: abre wa.me
+  window.open('https://wa.me/?text='+encodeURIComponent(_msg),'_blank','noopener,noreferrer');
+}
+
+function novoAnuncio(){
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('preco').value='';
+  document.getElementById('tamanho').value='';
+  document.getElementById('obs').value='';
+  document.querySelectorAll('#catTags .tag').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#stateTags .tag').forEach((t,i)=>t.classList.toggle('active',i===0));
+  removePhoto(); hideStatus(); _msg='';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function ehHoje(ts){
+  if(!ts) return false;
+  const d=new Date(ts); const h=new Date();
+  return d.getDate()===h.getDate() && d.getMonth()===h.getMonth() && d.getFullYear()===h.getFullYear();
+}
+
+/* ── Fechar caixa ── */
+function fecharCaixaHoje(){
+  const vendasHoje = _products.filter(p=>p.status==='sold' && ehHoje(p.soldAt) && !p.cashoutSent);
+  if(!vendasHoje.length){ toast('Nenhuma venda nova hoje.'); return; }
+
+  let totalOnline=0, totalFisico=0, qtdOnline=0, qtdFisico=0;
+  vendasHoje.forEach(p=>{
+    if(p.type==='physical'){ totalFisico+=(p.precoNum||0); qtdFisico++; }
+    else { totalOnline+=(p.precoNum||0); qtdOnline++; }
+  });
+  const totalGeral = totalOnline + totalFisico;
+  const qtdTotal = qtdOnline + qtdFisico;
+  const ticket = qtdTotal>0 ? totalGeral/qtdTotal : 0;
+  const perc = 15;
+  const comissao = totalGeral*(perc/100);
+
+  let resumo = '📊 *FECHAMENTO DO DIA*\n'
+    + new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})+'\n\n';
+
+  if(qtdOnline>0)
+    resumo += '🌐 Vendas Online: R$ '+totalOnline.toFixed(2).replace('.',',')+' ('+qtdOnline+' peça'+(qtdOnline>1?'s':'')+')\n';
+  if(qtdFisico>0)
+    resumo += '🏪 Vendas Físicas: R$ '+totalFisico.toFixed(2).replace('.',',')+' ('+qtdFisico+' peça'+(qtdFisico>1?'s':'')+')\n';
+
+  resumo += '\n💰 *Total: R$ '+totalGeral.toFixed(2).replace('.',',')+'*'
+    + '\n📦 Peças vendidas: '+qtdTotal
+    + '\n🎯 Ticket médio: R$ '+ticket.toFixed(2).replace('.',',')
+    + '\n💸 Comissão ('+perc+'%): R$ '+comissao.toFixed(2).replace('.',',');
+
+  vendasHoje.forEach(p=>{ p.cashoutSent=true; updateProductInDb(p.id,{cashoutSent:true}); });
+
+  const meuTel=(document.getElementById('meuTel').value||'').trim().replace(/\D/g,'');
+  const dest=meuTel?'https://wa.me/55'+meuTel+'?text='+encodeURIComponent(resumo):'https://wa.me/?text='+encodeURIComponent(resumo);
+  window.open(dest,'_blank');
+}
+
+/* ── Init ── */
+applyTheme(true);
+</script>
+</body>
+</html>
