@@ -1,175 +1,324 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Brechó Post IA</title>
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<!-- LOGIN -->
-<div id="loginScreen" class="center">
-  <form id="loginForm" class="card">
-    <h1>Brechó Post IA</h1>
+<!-- ════════════════════════════════════════
+     LOGIN
+════════════════════════════════════════ -->
+<div id="loginScreen" style="display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:24px;background:var(--bg);">
+  <div style="width:100%;max-width:360px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:52px;height:52px;background:linear-gradient(135deg,var(--primary),#ffd2a3);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 6px 20px var(--primary-glow);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </div>
+      <h1 style="font-size:1.4rem;font-weight:800;color:var(--text);">Brechó Post IA</h1>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-top:4px;">Entre com sua conta para continuar</p>
+    </div>
 
-    <label>Email</label>
-    <input type="email" id="loginEmail" required />
-
-    <label>Senha</label>
-    <input type="password" id="loginSenha" required />
-
-    <div id="loginErr" class="error"></div>
-
-    <button type="submit" id="btnLogin">Entrar</button>
-  </form>
+    <!-- BUG 3 FIX: <form> envolve os campos de senha para que gerenciadores de senha funcionem -->
+    <form id="loginForm" onsubmit="fazerLogin(); return false;"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="gloria@email.com"
+               autocomplete="email" inputmode="email"
+               onkeydown="if(event.key==='Enter') document.getElementById('loginSenha').focus()">
+      </div>
+      <div class="field">
+        <label for="loginSenha">Senha</label>
+        <input type="password" id="loginSenha" placeholder="••••••••"
+               autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') fazerLogin()">
+      </div>
+      <div id="loginErr" role="alert"
+           style="font-size:.78rem;color:var(--error);margin-bottom:10px;min-height:18px;text-align:center;"></div>
+      <button id="btnLogin" class="btn btn-primary" type="submit">Entrar</button>
+    </form>
+  </div>
 </div>
 
-<!-- APP -->
-<div id="appWrapper" class="hidden">
-  <header>
-    <h2>Brechó Post IA</h2>
-    <button id="logoutBtn">Sair</button>
-  </header>
+<!-- ════════════════════════════════════════
+     APP
+════════════════════════════════════════ -->
+<div id="appWrapper" style="display:none">
+  <div class="app">
 
-  <main>
-    <section>
-      <h3>Novo Produto</h3>
+    <!-- Header -->
+    <header class="header">
+      <div class="logo" aria-hidden="true">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </div>
+      <div class="header-text">
+        <h1>Brechó Post IA</h1>
+        <p id="modelLabel">Gemini Flash · Link rastreável</p>
+      </div>
+      <div id="loggedEmail" aria-label="Email logado"
+           style="font-size:.7rem;color:var(--text-faint);margin-left:auto;align-self:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="fazerLogout()" type="button" title="Sair" style="margin-right:2px" aria-label="Sair da conta">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+        <button class="icon-btn" onclick="toggleTheme()" type="button" aria-label="Alternar tema claro/escuro">
+          <svg id="themeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button class="icon-btn" onclick="toggleConfig()" type="button" aria-label="Configurações" aria-expanded="false" id="btnConfig">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        </button>
+      </div>
+    </header>
 
-      <input type="file" id="foto" accept="image/*" />
+    <!-- Config Card -->
+    <div class="card" id="cfgCard" style="display:none" role="region" aria-label="Configurações">
+      <div class="card-header"><div class="dot" aria-hidden="true"></div><span class="card-title">Configurações</span></div>
 
-      <input type="number" id="preco" placeholder="Preço" />
-      <input type="text" id="tamanho" placeholder="Tamanho" />
-      <textarea id="obs" placeholder="Descrição"></textarea>
+      <div class="field">
+        <label for="telefone">📱 Telefone do brechó <span style="color:var(--primary);font-weight:800;" aria-label="obrigatório">*</span></label>
+        <input type="tel" id="telefone" placeholder="5511999998888 (com DDI+DDD)" inputmode="numeric" autocomplete="tel">
+        <div class="info-badge badge-sec" style="margin-top:6px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>Este é o número que recebe os clientes interessados. <strong>Só mude isso normalmente.</strong></p>
+        </div>
+      </div>
 
-      <button id="btnGerar">Gerar Mensagem</button>
-    </section>
+      <div class="grid-2">
+        <div class="field">
+          <label for="brecoNome">Nome do brechó</label>
+          <input type="text" id="brecoNome" placeholder="Luxus Brechó" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="seuNome">Seu nome</label>
+          <input type="text" id="seuNome" placeholder="Ex: João" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label for="meuTel">Seu WhatsApp (alertas de venda)</label>
+        <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric" autocomplete="tel">
+      </div>
 
-    <section id="resultado" class="hidden">
-      <h3>Mensagem</h3>
-      <pre id="msg"></pre>
-      <button id="copiarBtn">Copiar</button>
-    </section>
-  </main>
-</div>
+      <details style="margin-top:14px">
+        <summary style="font-size:var(--xs);color:var(--text-faint);cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;list-style:none;display:flex;align-items:center;gap:5px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Chave da API Gemini
+        </summary>
+        <div style="margin-top:10px">
+          <div class="api-wrap">
+            <label for="apiKey" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Chave da API Gemini</label>
+            <input type="password" id="apiKey" placeholder="AIzaSy… (deixe vazio para usar modo básico)"
+                   autocomplete="off" spellcheck="false">
+            <button class="api-toggle" onclick="toggleApiVis()" type="button" aria-label="Mostrar/esconder chave API">
+              <svg id="eyeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="api-saved" id="apiSavedBadge" role="status">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Chave salva no dispositivo
+          </div>
+          <div class="info-badge badge-sec" style="margin-top:8px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <p>Salva apenas neste dispositivo. Grátis em <strong>aistudio.google.com</strong></p>
+          </div>
+        </div>
+      </details>
 
+      <button class="btn btn-primary" style="margin-top:14px" onclick="salvarConfig()" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Salvar configurações
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <nav class="nav" aria-label="Seções do app">
+      <button class="nav-btn active" id="tabAnuncio" onclick="switchTab('anuncio')" type="button" aria-selected="true" role="tab">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Anunciar
+      </button>
+      <button class="nav-btn" id="tabHistorico" onclick="switchTab('historico')" type="button" aria-selected="false" role="tab">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        Histórico
+        <span class="badge" id="pendBadge" aria-live="polite" aria-label="produtos pendentes">0</span>
+      </button>
+    </nav>
+
+    <!-- ═══ ABA ANUNCIAR ═══ -->
+    <div id="pageAnuncio" role="tabpanel">
+      <div class="card">
+        <div class="card-header"><div class="dot" aria-hidden="true"></div><span class="card-title">Produto</span></div>
+
+        <div id="photoArea">
+          <!-- Sem foto: dois botões -->
+          <div class="photo-btns" id="photoBtns">
+            <div class="photo-btn">
+              <input type="file" id="fotoCamera" accept="image/*" capture="environment"
+                     onchange="handlePhoto(event)" aria-label="Tirar foto com câmera">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>📷 Câmera</span>
+            </div>
+            <div class="photo-btn">
+              <input type="file" id="fotoGaleria" accept="image/*"
+                     onchange="handlePhoto(event)" aria-label="Escolher da galeria">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>🖼️ Galeria</span>
+            </div>
+          </div>
+          <!-- Com foto: preview + remover -->
+          <div class="upload-zone has-img" id="previewZone" style="display:none">
+            <img id="preview" alt="Prévia do produto">
+            <button class="rm-photo" onclick="removePhoto()" type="button" aria-label="Remover foto">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:14px">
+          <div class="field">
+            <label for="preco">Preço (R$) <span aria-label="obrigatório">*</span></label>
+            <div class="input-pre"><span class="pre" aria-hidden="true">R$</span>
+              <input type="number" id="preco" placeholder="0,00" step="0.01" min="0"
+                     inputmode="decimal" required aria-required="true">
+            </div>
+          </div>
+          <div class="field">
+            <label for="tamanho">Tamanho</label>
+            <input type="text" id="tamanho" placeholder="P, M, G, 38…" autocomplete="off">
+          </div>
+        </div>
+
+        <p class="sec-label" id="catLabel">Categoria</p>
+        <div class="tags" id="catTags" role="group" aria-labelledby="catLabel">
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👗 Vestido</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👕 Camisa</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👖 Calça</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👟 Calçado</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👜 Bolsa</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">🧥 Casaco</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">💍 Acessório</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">🩱 Blusa</div>
+          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">🩴 Short</div>
+        </div>
+
+        <p class="sec-label" id="estLabel">Estado</p>
+        <div class="tags" id="stateTags" role="radiogroup" aria-labelledby="estLabel">
+          <div class="tag active" onclick="toggleSingle(this,'stateTags')" role="radio" aria-checked="true"  tabindex="0">✨ Ótimo</div>
+          <div class="tag"        onclick="toggleSingle(this,'stateTags')" role="radio" aria-checked="false" tabindex="0">👌 Bom</div>
+          <div class="tag"        onclick="toggleSingle(this,'stateTags')" role="radio" aria-checked="false" tabindex="0">🏷️ Novo c/ etiqueta</div>
+        </div>
+
+        <p class="sec-label"><label for="obs">Detalhes extras (opcional)</label></p>
+        <textarea id="obs" placeholder="Ex: camisa de time, bordado floral, vintage anos 90…"></textarea>
+      </div>
+
+      <div class="status-bar err" id="errBar" role="alert" aria-live="assertive"></div>
+      <div class="status-bar warn" id="retryBar" role="status" aria-live="polite"></div>
+
+      <button class="btn btn-primary" id="btnGerar" onclick="gerarPost()" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Gerar mensagem com IA
+      </button>
+
+      <!-- Resultado -->
+      <div class="result-card" id="resultCard" role="region" aria-label="Resultado gerado">
+        <div class="result-top avail">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Mensagem pronta! Salva no histórico.</span>
+        </div>
+        <div class="result-body">
+          <div class="link-prev">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <div class="lt"><strong>Link de rastreio ativo — cliente chega identificando o produto</strong><span id="linkTxt">wa.me/55…</span></div>
+          </div>
+          <div class="msg-box" id="msgResult" aria-label="Mensagem gerada" tabindex="0"></div>
+          <p class="hint">Segure o texto para selecionar · ou use os botões</p>
+          <button class="btn btn-primary" onclick="copiar()" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar mensagem
+          </button>
+          <button class="btn btn-ghost" id="btnShareWpp" onclick="compartilharWpp()" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            Compartilhar com foto no WhatsApp
+          </button>
+          <div class="divider"></div>
+          <button class="btn btn-ghost" onclick="novoAnuncio()" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            Anunciar outro produto
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ABA HISTÓRICO ═══ -->
+    <div id="pageHistorico" style="display:none" role="tabpanel">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <button class="btn btn-purple" onclick="abrirModalVendaFisica()" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Venda Física
+        </button>
+        <button class="btn btn-primary" onclick="fecharCaixaHoje()" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          Fechar Caixa
+        </button>
+      </div>
+
+      <div class="stats-row" id="statsRow" aria-label="Resumo de produtos">
+        <div class="stat-box avail"><div class="stat-val" id="cntDisp">0</div><div class="stat-lbl">Disponíveis</div></div>
+        <div class="stat-box reserv"><div class="stat-val" id="cntRes">0</div><div class="stat-lbl">Reservados</div></div>
+        <div class="stat-box sold-s"><div class="stat-val" id="cntVend">0</div><div class="stat-lbl">Vendidos hoje</div></div>
+      </div>
+      <div id="histList" aria-live="polite"></div>
+    </div>
+
+  </div><!-- /app -->
+
+  <!-- Modal Venda Física -->
+  <div class="modal-overlay" id="modalVendaFisica" onclick="fecharModalVF(event)"
+       role="dialog" aria-modal="true" aria-labelledby="modalVFTitle">
+    <div class="modal">
+      <div class="modal-title" id="modalVFTitle">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--physical)" stroke-width="2.2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Registrar Venda Física
+      </div>
+      <div class="field">
+        <label for="vfDesc">Descrição do produto</label>
+        <input type="text" id="vfDesc" placeholder="Ex: Vestido floral P, Bolsa couro bege…" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="vfPreco">Valor (R$) <span aria-label="obrigatório">*</span></label>
+        <div class="input-pre"><span class="pre" aria-hidden="true">R$</span>
+          <input type="number" id="vfPreco" placeholder="0,00" step="0.01" min="0"
+                 inputmode="decimal" aria-required="true">
+        </div>
+      </div>
+      <div class="info-badge" style="background:var(--physical-bg);border:1px solid var(--physical-border);margin-bottom:14px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--physical)" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p style="color:var(--physical)">Será contabilizada no fechamento do caixa de hoje junto com as vendas online.</p>
+      </div>
+      <button class="btn btn-purple" onclick="registrarVendaFisica()" type="button" style="margin-bottom:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Registrar Venda
+      </button>
+      <button class="btn btn-ghost" onclick="fecharModalVF()" type="button" style="margin-top:0">Cancelar</button>
+    </div>
+  </div>
+
+</div><!-- /appWrapper -->
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- App -->
 <script src="app.js"></script>
 </body>
 </html>
-
-
-/* ================= STYLE.CSS ================= */
-
-body {
-  font-family: sans-serif;
-  background: #111;
-  color: #fff;
-}
-
-.hidden { display:none; }
-.center {
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-.card {
-  background:#222;
-  padding:20px;
-  border-radius:10px;
-}
-input, textarea, button {
-  width:100%;
-  margin:8px 0;
-  padding:10px;
-}
-button { cursor:pointer; }
-.error { color:red; }
-
-
-/* ================= APP.JS ================= */
-
-'use strict';
-
-// Firebase
-const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_PROJECT",
-};
-
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-// Elements
-const loginForm = document.getElementById('loginForm');
-const loginScreen = document.getElementById('loginScreen');
-const appWrapper = document.getElementById('appWrapper');
-const loginErr = document.getElementById('loginErr');
-
-const btnGerar = document.getElementById('btnGerar');
-const resultado = document.getElementById('resultado');
-const msgEl = document.getElementById('msg');
-
-// Auth
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const email = loginEmail.value;
-  const senha = loginSenha.value;
-
-  try {
-    await auth.signInWithEmailAndPassword(email, senha);
-  } catch (err) {
-    loginErr.textContent = 'Erro ao logar';
-  }
-});
-
-// Auth State
-auth.onAuthStateChanged(user => {
-  if (user) {
-    loginScreen.classList.add('hidden');
-    appWrapper.classList.remove('hidden');
-  } else {
-    loginScreen.classList.remove('hidden');
-    appWrapper.classList.add('hidden');
-  }
-});
-
-// Logout
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  auth.signOut();
-});
-
-// Gerar Mensagem
-btnGerar.addEventListener('click', () => {
-  const preco = document.getElementById('preco').value;
-  const tamanho = document.getElementById('tamanho').value;
-  const obs = document.getElementById('obs').value;
-
-  const prompt = `
-Produto à venda:
-Preço: ${preco}
-Tamanho: ${tamanho}
-Descrição: ${obs}
-
-Crie um texto de venda curto e atrativo.
-  `;
-
-  msgEl.textContent = prompt;
-  resultado.classList.remove('hidden');
-});
-
-// Copiar
-copiarBtn.addEventListener('click', () => {
-  navigator.clipboard.writeText(msgEl.textContent);
-});
