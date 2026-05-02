@@ -462,7 +462,7 @@ async function callOnce(key, model, parts) {
     resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: 550, temperature: 0.75, topP: 0.90, stopSequences: ['---', '###'] } }),
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: 900, temperature: 0.82, topP: 0.92, stopSequences: ['---', '###'] } }),
       signal: ctrl.signal
     });
   } catch (e) {
@@ -579,31 +579,39 @@ async function gerarPost() {
     const hasImg = !!_foto64;
 
     // ✅ BUG 1 CORRIGIDO: template literal com backtick
-    const prompt = `Você é a vendedora mais animada e carismática do brechó "${nome}", escrevendo um post de produto pra mandar no grupo do WhatsApp.
-
-Produto: ${cats.join('/') || 'peça'} | Estado: ${estado.join('/') || 'bom'} | Tamanho: ${tam || '?'} | Obs: ${obs || 'nenhuma'}
-${hasImg ? 'Descreva APENAS o que for claramente visível na imagem (cor, comprimento, tipo de peça). Não invente estampas, tecidos ou marcas que não estejam óbvios.' : ''}
-
-Você tem a personalidade da Edna Moda de Os Incríveis: direta, refinada, com opiniões firmes e um humor seco e sofisticado. Você não elogia por elogiar — você analisa, julga e apresenta com autoridade.
-
-${hasImg ? `ANÁLISE DA IMAGEM (obrigatório antes de escrever):
-- Tipo de peça: identifique com precisão (camisa, vestido, calça, etc.)
-- Cor principal e secundária
-- Estampa ou textura visível
-- Corte e comprimento
-- Detalhes notáveis (bolso, botões, gola, cinto, caimento)
-Use APENAS o que você vê. Não invente.
-
-` : ''}Escreva 4 frases de anúncio com a personalidade da Edna Moda:
-1. Descreva a peça com autoridade e detalhes visuais${hasImg ? ' — use o que você analisou na imagem' : ''}. COMPLETE A FRASE.
-2. Estado de conservação: seja direta e confiante. COMPLETE A FRASE.
-3. Pra quem serve e em qual ocasião — com ironia elegante ou elogio certeiro. COMPLETE A FRASE.
-4. Convite pra reservar, com o charme seco da Edna. COMPLETE A FRASE.
-
-REGRA ABSOLUTA: cada frase deve terminar completamente. Nunca corte no meio de uma palavra ou ideia.
-Máximo 2 emojis. Sem preço. Sem markdown. Sem numeração na resposta.
-
-RESPONDA APENAS com as 4 frases, sem prefácio, sem explicações.`;
+    // Prompt reescrito: personalidade Edna Moda mais forte + regras anti-truncamento
+    const prompt = [
+      `Você é a Edna Moda — estilista genial, direta, esnobe refinada e incapaz de elogiar sem fundamento.`,
+      `Agora você escreve o anúncio de um produto para o grupo do WhatsApp do brechó "${nome}".`,
+      ``,
+      `DADOS DO PRODUTO:`,
+      `- Peça: ${cats.join(', ') || 'peça'}`,
+      `- Estado: ${estado.join(', ') || 'bom'}`,
+      `- Tamanho: ${tam || 'não informado'}`,
+      `- Observação extra: ${obs || 'nenhuma'}`,
+      hasImg ? `\nA imagem foi enviada. Use APENAS o que é claramente visível: cor, corte, comprimento, detalhes (botões, gola, bolsos). NUNCA invente estampas, tecidos ou marcas.` : '',
+      ``,
+      `SUA VOZ É A DA EDNA:`,
+      `- Frases curtas e certeiras. Nenhuma palavra desperdiçada.`,
+      `- Julgamentos firmes com elegância: "estruturado", "preciso", "impecável", "discreto".`,
+      `- Ironia seca quando apropriado. Nunca fofa. Nunca exagerada.`,
+      `- Você apresenta, não grita. Zero exclamações histéricas. Máximo 1 emoji no texto todo.`,
+      ``,
+      `ESCREVA EXATAMENTE 4 PARÁGRAFOS separados por linha vazia:`,
+      ``,
+      `Parágrafo 1 — DESCRIÇÃO: o que é, cor, corte e um detalhe marcante.${hasImg ? ' Use o que você viu na imagem.' : ''} Termine com ponto.`,
+      ``,
+      `Parágrafo 2 — ESTADO: objetivo e confiante sobre a conservação. Termine com ponto.`,
+      ``,
+      `Parágrafo 3 — PARA QUEM: quem vai usar e em qual ocasião, com precisão ou ironia. Termine com ponto.`,
+      ``,
+      `Parágrafo 4 — CHAMADA: convide para reservar com charme frio. Curto. Termine com ponto.`,
+      ``,
+      `REGRAS ABSOLUTAS:`,
+      `- CADA parágrafo deve ser uma frase COMPLETA — termine com ponto final, nunca no meio de uma palavra.`,
+      `- Sem preço, sem tamanho, sem markdown, sem numeração, sem prefácio, sem explicações.`,
+      `- Responda APENAS os 4 parágrafos.`
+    ].filter(l => l !== null).join('\n');
 
     try {
       const r = await callGemini(key, prompt, _foto64);
