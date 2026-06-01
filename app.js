@@ -77,10 +77,6 @@ function carregarConfigSalva() {
     if (cfg.brecoNome) document.getElementById('brecoNome').value = cfg.brecoNome;
     if (cfg.seuNome)   document.getElementById('seuNome').value   = cfg.seuNome;
     if (cfg.meuTel)    document.getElementById('meuTel').value    = cfg.meuTel;
-    if (cfg.apiKey) {
-      document.getElementById('apiKey').value = cfg.apiKey;
-      document.getElementById('apiSavedBadge').classList.add('on');
-    }
   } catch (e) {}
 }
 
@@ -89,13 +85,10 @@ function salvarConfig() {
     telefone:  document.getElementById('telefone').value.trim(),
     brecoNome: document.getElementById('brecoNome').value.trim(),
     seuNome:   document.getElementById('seuNome').value.trim(),
-    meuTel:    document.getElementById('meuTel').value.trim(),
-    apiKey:    document.getElementById('apiKey').value.trim()
+    meuTel:    document.getElementById('meuTel').value.trim()
   };
   try {
     localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
-    const badge = document.getElementById('apiSavedBadge');
-    if (cfg.apiKey) badge.classList.add('on');
     toast('✅ Configurações salvas!');
     setTimeout(() => { _cfgOpen = false; document.getElementById('cfgCard').style.display = 'none'; }, 800);
   } catch (e) { toast('Erro ao salvar.'); }
@@ -108,7 +101,13 @@ window.salvarConfig = salvarConfig;
 
 let _foto64 = null, _fotoFile = null, _msg = '', _dark = true, _cfgOpen = false, _currentTab = 'anuncio';
 let _products = [];
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-latest'];
+
+// Backend Luxus IA. Em produção (GitHub Pages) usa o domínio público com HTTPS;
+// em dev (localhost) cai no backend local. window.IA_BASE_URL sempre tem prioridade.
+const IA_BASE_URL = (typeof window !== 'undefined' && window.IA_BASE_URL)
+  || (typeof location !== 'undefined' && location.hostname.endsWith('github.io')
+    ? 'https://api.luxusbrecho.com'
+    : 'http://127.0.0.1:8000');
 
 async function loadProductsFromDb() {
   try {
@@ -167,16 +166,6 @@ function toggleConfig() {
   document.getElementById('cfgCard').style.display = _cfgOpen ? 'block' : 'none';
 }
 window.toggleConfig = toggleConfig;
-
-function toggleApiVis() {
-  const inp = document.getElementById('apiKey');
-  const vis  = inp.type === 'password';
-  inp.type   = vis ? 'text' : 'password';
-  document.getElementById('eyeIcon').innerHTML = vis
-    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
-    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
-}
-window.toggleApiVis = toggleApiVis;
 
 function switchTab(tab) {
   _currentTab = tab;
@@ -450,77 +439,47 @@ async function removerVendaFisica(id) {
 window.removerVendaFisica = removerVendaFisica;
 
 /* ════════════════════════════════════════════
-   GEMINI — API calls com retry/fallback
+   IA — backend próprio (Ollama: qwen2.5 + moondream)
 ════════════════════════════════════════════ */
 
-async function callOnce(key, model, parts) {
-  const url  = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
+async function callIA(dados, imgB64) {
   const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), 35000);
+  const tid  = setTimeout(() => ctrl.abort(), 130000); // 130s — qwen2.5:3b em ARM é lento
+
+  // mostra aviso após 8s sem cancelar a request
+  const lentoMsg = setTimeout(() => showRetry('⏳ A IA está pensando… isso leva ~30–60s.'), 8000);
+
   let resp;
   try {
-    resp = await fetch(url, {
+    resp = await fetch(IA_BASE_URL + '/ia/anuncio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: 900, temperature: 0.82, topP: 0.92, stopSequences: ['---', '###'] } }),
+      body: JSON.stringify({
+        brecho:         dados.nome,
+        categorias:     dados.cats,
+        estado:         dados.estado,
+        tamanho:        dados.tam,
+        observacao:     dados.obs,
+        imagem_base64:  imgB64 || null,
+        sellerId:       currentSellerId || 'anon'
+      }),
       signal: ctrl.signal
     });
   } catch (e) {
-    clearTimeout(tid);
-    throw Object.assign(new Error(e.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK'), { code: e.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK' });
+    clearTimeout(tid); clearTimeout(lentoMsg); hideRetry();
+    throw new Error(e.name === 'AbortError'
+      ? 'A IA demorou demais. Tente novamente.'
+      : 'Sem conexão com o servidor de IA.');
   }
-  clearTimeout(tid);
-  const body = await resp.json().catch(() => ({}));
-  if (resp.status === 429) {
-    const rd = body?.error?.details?.find(d => d['@type']?.includes('RetryInfo'))?.retryDelay;
-    throw Object.assign(new Error('rate_limit'), { code: 429, retryMs: rd ? (parseInt(rd) || 5) * 1000 : null });
-  }
-  if (!resp.ok) throw Object.assign(new Error('http_' + resp.status), { code: resp.status });
-  return body?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
-}
+  clearTimeout(tid); clearTimeout(lentoMsg);
 
-async function callGemini(key, prompt, imgB64) {
-  if (!key.startsWith('AIza') || key.length < 30)
-    throw new Error('Chave inválida. Verifique em aistudio.google.com.');
-  const parts = [{ text: prompt }];
-  if (imgB64) {
-    const m = imgB64.match(/^data:(image\/[\w]+);base64,(.+)$/s);
-    if (m) parts.push({ inline_data: { mime_type: m[1], data: m[2] } });
-  }
-  const names = {
-    'gemini-2.5-flash':      'Gemini 2.5 Flash',
-    'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
-    'gemini-2.0-flash-lite': 'Gemini 2.0 Flash Lite',
-    'gemini-1.5-flash-latest': 'Gemini 1.5 Flash'
-  };
-  for (let mi = 0; mi < MODELS.length; mi++) {
-    const model = MODELS[mi];
-    for (let at = 1; at <= 3; at++) {
-      try {
-        const r = await callOnce(key, model, parts);
-        document.getElementById('modelLabel').textContent = (names[model] || model) + ' · Firebase';
-        hideRetry(); return r;
-      } catch (err) {
-        if (err.code === 429) {
-          if (at < 3) {
-            const w = err.retryMs ? Math.ceil(err.retryMs / 1000) + 2 : at * 8;
-            showRetry('⏳ Limite atingido. Aguardando ' + w + 's… (' + at + '/3)');
-            await sleep(w * 1000); continue;
-          }
-          showRetry('↪️ Trocando modelo…'); await sleep(1500); break;
-        }
-        if (err.code === 404 || err.code === 400) break;
-        if (err.code === 403) throw new Error('Chave sem permissão. Verifique no AI Studio.');
-        if (err.code === 'TIMEOUT') {
-          if (at < 3) { showRetry('⏳ Sem resposta, tentando… (' + at + '/3)'); await sleep(3000); continue; }
-          break;
-        }
-        break;
-      }
-    }
-  }
+  const body = await resp.json().catch(() => ({}));
+  if (resp.status === 429) { hideRetry(); throw new Error('⏳ Muitos pedidos. Aguarde alguns segundos.'); }
+  if (resp.status === 503) { hideRetry(); throw new Error('IA indisponível agora.'); }
+  if (resp.status === 504) { hideRetry(); throw new Error('A IA demorou demais. Tente novamente.'); }
+  if (!resp.ok)            { hideRetry(); throw new Error('Erro no servidor de IA (' + resp.status + ').'); }
   hideRetry();
-  throw new Error('Nenhum modelo disponível. Usando descrição padrão.');
+  return body.texto || '';
 }
 
 /* ════════════════════════════════════════════
@@ -546,17 +505,14 @@ function descLocal(cats, estado, tam, obs) {
 }
 
 /* ════════════════════════════════════════════
-   GEMINI — Gerar post principal
-   BUG 1 FIX: prompt como template literal (backtick)
-   — elimina o SyntaxError de aspas aninhadas
+   Gerar post principal
+   Prompt vive no backend — front só envia os dados.
 ════════════════════════════════════════════ */
 
 async function gerarPost() {
   hideStatus();
-  const key    = (document.getElementById('apiKey').value   || '').trim();
   const tel    = (document.getElementById('telefone').value || '').trim();
   const nome   = (document.getElementById('brecoNome').value || '').trim().slice(0, 60) || 'Brechó';
-  const meu    = (document.getElementById('seuNome').value  || '').trim().slice(0, 40);
   const precoV = document.getElementById('preco').value;
   const tam    = (document.getElementById('tamanho').value  || '').trim().slice(0, 20);
   const obs    = (document.getElementById('obs').value      || '').trim().slice(0, 200);
@@ -575,52 +531,12 @@ async function gerarPost() {
   setLoading(true);
 
   let desc = '';
-  if (key) {
-    const hasImg = !!_foto64;
-
-    // ✅ BUG 1 CORRIGIDO: template literal com backtick
-    // Prompt reescrito: personalidade Edna Moda mais forte + regras anti-truncamento
-    const prompt = [
-      `Você é a Edna Moda — estilista genial, direta, esnobe refinada e incapaz de elogiar sem fundamento.`,
-      `Agora você escreve o anúncio de um produto para o grupo do WhatsApp do brechó "${nome}".`,
-      ``,
-      `DADOS DO PRODUTO:`,
-      `- Peça: ${cats.join(', ') || 'peça'}`,
-      `- Estado: ${estado.join(', ') || 'bom'}`,
-      `- Tamanho: ${tam || 'não informado'}`,
-      `- Observação extra: ${obs || 'nenhuma'}`,
-      hasImg ? `\nA imagem foi enviada. Use APENAS o que é claramente visível: cor, corte, comprimento, detalhes (botões, gola, bolsos). NUNCA invente estampas, tecidos ou marcas.` : '',
-      ``,
-      `SUA VOZ É A DA EDNA:`,
-      `- Frases curtas e certeiras. Nenhuma palavra desperdiçada.`,
-      `- Julgamentos firmes com elegância: "estruturado", "preciso", "impecável", "discreto".`,
-      `- Ironia seca quando apropriado. Nunca fofa. Nunca exagerada.`,
-      `- Você apresenta, não grita. Zero exclamações histéricas. Máximo 1 emoji no texto todo.`,
-      ``,
-      `ESCREVA EXATAMENTE 4 PARÁGRAFOS separados por linha vazia:`,
-      ``,
-      `Parágrafo 1 — DESCRIÇÃO: o que é, cor, corte e um detalhe marcante.${hasImg ? ' Use o que você viu na imagem.' : ''} Termine com ponto.`,
-      ``,
-      `Parágrafo 2 — ESTADO: objetivo e confiante sobre a conservação. Termine com ponto.`,
-      ``,
-      `Parágrafo 3 — PARA QUEM: quem vai usar e em qual ocasião, com precisão ou ironia. Termine com ponto.`,
-      ``,
-      `Parágrafo 4 — CHAMADA: convide para reservar com charme frio. Curto. Termine com ponto.`,
-      ``,
-      `REGRAS ABSOLUTAS:`,
-      `- CADA parágrafo deve ser uma frase COMPLETA — termine com ponto final, nunca no meio de uma palavra.`,
-      `- Sem preço, sem tamanho, sem markdown, sem numeração, sem prefácio, sem explicações.`,
-      `- Responda APENAS os 4 parágrafos.`
-    ].filter(l => l !== null).join('\n');
-
-    try {
-      const r = await callGemini(key, prompt, _foto64);
-      desc = r ? r.replace(/^\d+[.)\s]+/gm, '').trim() : descLocal(cats, estado, tam, obs);
-    } catch (err) {
-      showErr(err.message);
-      desc = descLocal(cats, estado, tam, obs);
-    }
-  } else {
+  try {
+    const imgB64 = _foto64 ? _foto64.split(',')[1] : null;  // backend espera base64 puro
+    const r = await callIA({ nome, cats, estado, tam, obs }, imgB64);
+    desc = r ? finalizarDesc(r) : descLocal(cats, estado, tam, obs);
+  } catch (err) {
+    showErr(err.message);
     desc = descLocal(cats, estado, tam, obs);
   }
 

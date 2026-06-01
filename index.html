@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Brechó Post IA</title>
+  <meta name="apple-mobile-web-app-title" content="Luxus">
+  <meta name="theme-color" content="#1c1511" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#fff6ed" media="(prefers-color-scheme: light)">
+  <title>Luxus Brechó · Anúncios</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -60,8 +63,8 @@
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       </div>
       <div class="header-text">
-        <h1>Brechó Post IA</h1>
-        <p id="modelLabel">Gemini Flash · Link rastreável</p>
+        <h1>Luxus Brechó</h1>
+        <p id="modelLabel">IA Luxus · Link rastreável</p>
       </div>
       <div id="loggedEmail" aria-label="Email logado"
            style="font-size:.7rem;color:var(--text-faint);margin-left:auto;align-self:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
@@ -106,31 +109,6 @@
         <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric" autocomplete="tel">
       </div>
 
-      <details style="margin-top:14px">
-        <summary style="font-size:var(--xs);color:var(--text-faint);cursor:pointer;font-weight:700;letter-spacing:.05em;text-transform:uppercase;list-style:none;display:flex;align-items:center;gap:5px;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Chave da API Gemini
-        </summary>
-        <div style="margin-top:10px">
-          <div class="api-wrap">
-            <label for="apiKey" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Chave da API Gemini</label>
-            <input type="password" id="apiKey" placeholder="AIzaSy… (deixe vazio para usar modo básico)"
-                   autocomplete="off" spellcheck="false">
-            <button class="api-toggle" onclick="toggleApiVis()" type="button" aria-label="Mostrar/esconder chave API">
-              <svg id="eyeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-          </div>
-          <div class="api-saved" id="apiSavedBadge" role="status">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-            Chave salva no dispositivo
-          </div>
-          <div class="info-badge badge-sec" style="margin-top:8px">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <p>Salva apenas neste dispositivo. Grátis em <strong>aistudio.google.com</strong></p>
-          </div>
-        </div>
-      </details>
-
       <button class="btn btn-primary" style="margin-top:14px" onclick="salvarConfig()" type="button">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         Salvar configurações
@@ -159,13 +137,13 @@
           <!-- Sem foto: dois botões -->
           <div class="photo-btns" id="photoBtns">
             <div class="photo-btn">
-              <input type="file" id="fotoCamera" accept="image/*" capture="environment"
+              <input type="file" id="fotoCamera" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment"
                      onchange="handlePhoto(event)" aria-label="Tirar foto com câmera">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               <span>📷 Câmera</span>
             </div>
             <div class="photo-btn">
-              <input type="file" id="fotoGaleria" accept="image/*"
+              <input type="file" id="fotoGaleria" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                      onchange="handlePhoto(event)" aria-label="Escolher da galeria">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               <span>🖼️ Galeria</span>
@@ -185,12 +163,12 @@
             <label for="preco">Preço (R$) <span aria-label="obrigatório">*</span></label>
             <div class="input-pre"><span class="pre" aria-hidden="true">R$</span>
               <input type="number" id="preco" placeholder="0,00" step="0.01" min="0"
-                     inputmode="decimal" required aria-required="true">
+                     inputmode="decimal" enterkeyhint="next" required aria-required="true">
             </div>
           </div>
           <div class="field">
             <label for="tamanho">Tamanho</label>
-            <input type="text" id="tamanho" placeholder="P, M, G, 38…" autocomplete="off">
+            <input type="text" id="tamanho" placeholder="P, M, G, 38…" autocomplete="off" enterkeyhint="next">
           </div>
         </div>
 
@@ -215,7 +193,7 @@
         </div>
 
         <p class="sec-label"><label for="obs">Detalhes extras (opcional)</label></p>
-        <textarea id="obs" placeholder="Ex: camisa de time, bordado floral, vintage anos 90…"></textarea>
+        <textarea id="obs" placeholder="Ex: camisa de time, bordado floral, vintage anos 90…" enterkeyhint="done"></textarea>
       </div>
 
       <div class="status-bar err" id="errBar" role="alert" aria-live="assertive"></div>

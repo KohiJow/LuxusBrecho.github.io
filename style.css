@@ -1,14 +1,18 @@
 /* ── Reset & Base ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:none}
+body{overflow-x:hidden}
+button,.tag,.nav-btn,.icon-btn,.photo-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 
 /* ── Design tokens (dark, default) ── */
 :root{
-  --bg:#1c1511;--surface:#241915;--surface-2:#2c201b;--surface-3:#33251f;
-  --border:rgba(237,189,140,.16);--border-strong:rgba(237,189,140,.32);
-  --text:#fff7ef;--text-muted:#f3c9a0;--text-faint:#b88f71;
-  --primary:#f28a3b;--primary-hover:#e1772a;
-  --primary-glow:rgba(242,138,59,.25);--primary-sub:rgba(242,138,59,.10);
+  /* Paleta oficial Luxus Brechó (alinhada ao logo e ao feed) */
+  --bg:#0D0D0F;--surface:#141419;--surface-2:#1c1c22;--surface-3:#23232b;
+  --border:#2A2A33;--border-strong:#3a3a45;
+  --text:#FDFDFD;--text-muted:#B0B0C0;--text-faint:#7c7c8c;
+  --primary:#FF8A3C;--primary-hover:#FF6A00;
+  --primary-glow:rgba(255,138,60,.25);--primary-sub:rgba(255,138,60,.10);
+  --accent:#2D8CFF;--accent-sub:rgba(45,140,255,.12);
   --success:#57b58a;--success-bg:rgba(87,181,138,.10);--success-border:rgba(87,181,138,.30);
   --error:#e26d7b;--error-bg:rgba(226,109,123,.10);--error-border:rgba(226,109,123,.30);
   --warning:#f1b15a;--warning-bg:rgba(241,177,90,.10);--warning-border:rgba(241,177,90,.30);
@@ -38,7 +42,7 @@ html{-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:none}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100dvh;font-size:var(--base);line-height:1.6;transition:background var(--tr),color var(--tr)}
 
 /* ── Layout ── */
-.app{max-width:480px;margin:0 auto;padding:0 16px 80px}
+.app{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,0) 16px calc(80px + env(safe-area-inset-bottom,0)) 16px}
 
 /* ── Nav ── */
 .nav{display:flex;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:4px;margin-bottom:18px;position:sticky;top:8px;z-index:20;box-shadow:var(--shadow-md)}
@@ -54,8 +58,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .header-text h1{font-size:var(--lg);font-weight:800;line-height:1.2}
 .header-text p{font-size:var(--xs);color:var(--text-muted)}
 .header-actions{margin-left:auto;display:flex;gap:6px}
-.icon-btn{width:34px;height:34px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--tr)}
-.icon-btn:hover{border-color:var(--border-strong);color:var(--primary);background:var(--primary-sub)}
+.icon-btn{width:40px;height:40px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--tr)}
+@media (hover:hover){.icon-btn:hover{border-color:var(--border-strong);color:var(--primary);background:var(--primary-sub)}}
+.icon-btn:active{background:var(--primary-sub);color:var(--primary)}
 
 /* ── Cards ── */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:18px;margin-bottom:12px;box-shadow:var(--shadow-sm);transition:background var(--tr),border-color var(--tr)}
@@ -67,8 +72,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .field{margin-bottom:11px}.field:last-child{margin-bottom:0}
 .field label{display:block;font-size:var(--xs);font-weight:600;color:var(--text-muted);margin-bottom:5px}
 input[type=text],input[type=number],input[type=tel],input[type=password],input[type=email],textarea,select{
-  width:100%;padding:10px 13px;background:var(--surface-2);border:1.5px solid var(--border);
-  border-radius:var(--r-md);font-family:var(--font);font-size:var(--sm);color:var(--text);
+  width:100%;padding:11px 13px;background:var(--surface-2);border:1.5px solid var(--border);
+  border-radius:var(--r-md);font-family:var(--font);font-size:16px;color:var(--text);
   outline:none;transition:border-color var(--tr),box-shadow var(--tr),background var(--tr);
   -webkit-appearance:none;appearance:none}
 input:focus,textarea:focus{border-color:var(--primary);background:var(--surface-3);box-shadow:0 0 0 3px var(--primary-glow)}
@@ -117,14 +122,15 @@ textarea{resize:none;min-height:72px;line-height:1.55}
 /* ── Tags ── */
 .sec-label{font-size:var(--xs);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin:14px 0 7px}
 .tags{display:flex;flex-wrap:wrap;gap:5px}
-.tag{padding:5px 12px;border-radius:var(--r-full);border:1.5px solid var(--border);font-size:var(--xs);font-weight:600;color:var(--text-muted);cursor:pointer;transition:all var(--tr);background:var(--surface-2);user-select:none;-webkit-tap-highlight-color:transparent}
-.tag:hover,.tag.active{border-color:var(--primary);color:var(--primary);background:var(--primary-sub)}
+.tag{padding:8px 14px;border-radius:var(--r-full);border:1.5px solid var(--border);font-size:var(--xs);font-weight:600;color:var(--text-muted);cursor:pointer;transition:all var(--tr);background:var(--surface-2);user-select:none;-webkit-tap-highlight-color:transparent}
+.tag.active{border-color:var(--primary);color:var(--primary);background:var(--primary-sub)}
+@media (hover:hover){.tag:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-sub)}}
 
 /* ── Buttons ── */
 .btn{width:100%;padding:14px;border-radius:var(--r-lg);font-family:var(--font);font-size:var(--sm);font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all var(--tr);-webkit-tap-highlight-color:transparent}
 .btn-primary{background:var(--primary);color:#fff;box-shadow:0 4px 18px var(--primary-glow)}
-.btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px)}
-.btn-primary:active{transform:translateY(0)}
+@media (hover:hover){.btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px)}}
+.btn-primary:active{transform:translateY(0);background:var(--primary-hover)}
 .btn-primary:disabled{background:var(--surface-3);color:var(--text-faint);box-shadow:none;cursor:not-allowed;transform:none}
 .btn-ghost{background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);margin-top:8px}
 .btn-ghost:hover{background:var(--surface-3);color:var(--text);border-color:var(--border-strong)}
@@ -162,7 +168,7 @@ textarea{resize:none;min-height:72px;line-height:1.55}
 .link-prev svg{flex-shrink:0;color:var(--primary)}
 .lt{font-size:var(--xs);color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .lt strong{color:var(--primary);font-weight:700;display:block;margin-bottom:1px}
-.msg-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:13px 15px;font-size:var(--sm);line-height:1.75;color:var(--text);white-space:pre-wrap;word-break:break-word;margin-bottom:12px;min-height:56px;user-select:text;cursor:text}
+.msg-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 15px;font-size:15px;line-height:1.8;color:var(--text);white-space:pre-wrap;word-break:break-word;margin-bottom:12px;min-height:56px;user-select:text;cursor:text}
 .hint{font-size:var(--xs);color:var(--text-faint);text-align:center;margin-bottom:12px}
 .divider{height:1px;background:var(--border);margin:13px 0}
 
