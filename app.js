@@ -106,7 +106,7 @@ let _products = [];
 // em dev (localhost) cai no backend local. window.IA_BASE_URL sempre tem prioridade.
 const IA_BASE_URL = (typeof window !== 'undefined' && window.IA_BASE_URL)
   || (typeof location !== 'undefined' && location.hostname.endsWith('github.io')
-    ? 'https://api.luxusbrecho.com'
+    ? 'https://api.luxusbrecho.com.br'
     : 'http://127.0.0.1:8000');
 
 async function loadProductsFromDb() {
