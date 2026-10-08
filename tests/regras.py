@@ -122,16 +122,16 @@ def recusa(resposta, nome):
 
 # exatamente o que o app grava (app.js, gerarAnuncio e registrarVendaFisica)
 ONLINE = {
-    "ts": AGORA, "emoji": "👟", "cats": ["👟 Calçado"], "estado": ["✨ Ótimo"], "estLabel": "Ótimo", "tam": "37",
+    "ts": AGORA, "emoji": "\U0001F45F", "cats": ["\U0001F45F Calçado"], "estado": ["\u2728 Ótimo"], "estLabel": "Ótimo", "tam": "37",
     "obs": "Melissa azul com cadarço amarelo", "precoNum": 45, "precoStr": "45,00",
     "link": "https://wa.me/5511900000000?text=Oi!%20Tenho%20interesse%20na%20pe%C3%A7a%20ABC234",
-    "msg": "👟 *Luxus Brechó*\n\n✨ Chegou peça nova!\n\n💰 *R$ 45,00*\n🔖 Código *ABC234*",
+    "msg": "\U0001F45F *Luxus Brechó*\n\n\u2728 Chegou peça nova!\n\n\U0001F4B0 *R$ 45,00*\n\U0001F516 Código *ABC234*",
     "foto64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==",
     "prodCod": "ABC234", "brecoNome": "Luxus Brechó", "brecoOwner": "uid-ana", "sellerEmail": "ana@exemplo.com",
     "status": "available", "soldAt": None, "cashoutSent": False, "type": "online",
 }
 FISICO = {
-    "ts": AGORA, "emoji": "🏪", "cats": ["Bolsa de couro bege"], "estado": [], "estLabel": "Venda física", "tam": "",
+    "ts": AGORA, "emoji": "\U0001F3EA", "cats": ["Bolsa de couro bege"], "estado": [], "estLabel": "Venda física", "tam": "",
     "obs": "", "precoNum": 80.5, "precoStr": "80,50", "link": "", "msg": "", "foto64": None,
     "brecoNome": "Luxus Brechó", "brecoOwner": "uid-ana", "sellerEmail": "ana@exemplo.com",
     "status": "sold", "soldAt": AGORA, "cashoutSent": False, "type": "physical",
@@ -161,8 +161,8 @@ def main():
     aceita(r_fisico, "venda na loja do jeito que o app grava (sem prodCod, preco com centavos)")
     aceita(cria("products", variante(ONLINE, foto64=None, obs="", tam="", cats=[], estado=[], estLabel="", precoNum=0, precoStr="0,00"), ANA),
            "anuncio sem foto, sem categoria e preco zero")
-    aceita(cria("products", variante(ONLINE, cats=["👗 Vestido", "👕 Camisa", "👖 Calça", "👟 Calçado", "👜 Bolsa", "🧥 Casaco", "💍 Acessório", "🩱 Blusa", "🩴 Short"],
-                                     estado=["🏷️ Novo c/ etiqueta"], obs="x" * 200, brecoNome="N" * 60, tam="T" * 20), ANA),
+    aceita(cria("products", variante(ONLINE, cats=["\U0001F457 Vestido", "\U0001F455 Camisa", "\U0001F456 Calça", "\U0001F45F Calçado", "\U0001F45C Bolsa", "\U0001F9E5 Casaco", "\U0001F48D Acessório", "\U0001FA71 Blusa", "\U0001FA74 Short"],
+                                     estado=["\U0001F3F7\uFE0F Novo c/ etiqueta"], obs="x" * 200, brecoNome="N" * 60, tam="T" * 20), ANA),
            "anuncio nos limites de tamanho do app")
     aceita(cria("products", variante(ONLINE, foto64="data:image/jpeg;base64," + "A" * 699000), ANA), "foto de quase 700 KB passa")
 
@@ -185,7 +185,7 @@ def main():
         "categoria que nao e texto": variante(ONLINE, cats=[1]),
         "categoria longa demais": variante(ONLINE, cats=["c" * 121]),
         "estado que nao e texto": variante(ONLINE, estado=[True]),
-        "lista de categorias grande demais": variante(ONLINE, cats=["👗 Vestido"] * 11),
+        "lista de categorias grande demais": variante(ONLINE, cats=["\U0001F457 Vestido"] * 11),
         "link que nao e do WhatsApp": variante(ONLINE, link="https://exemplo.com/phishing"),
         "mensagem gigante": variante(ONLINE, msg="m" * 1501),
         "disponivel com hora de venda": variante(ONLINE, soldAt=AGORA),

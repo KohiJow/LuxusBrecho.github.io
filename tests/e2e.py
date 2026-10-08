@@ -210,7 +210,7 @@ def fluxo_principal(b, url, saida):
     checa(pg.get_attribute("#btnConfig", "aria-expanded") == "true" and pg.is_visible("#cfgCard"), "configuracoes abrem")
     pg.fill("#telefone", "5511900000000")
     pg.fill("#brecoNome", "Luxus Brechó")
-    pg.fill("#meuTel", "11988887777")
+    pg.fill("#meuTel", "11900000001")
     pg.click("#cfgCard .btn-primary")
     pg.wait_for_timeout(1100)
     checa(pg.is_hidden("#cfgCard"), "salvar fecha as configuracoes")
@@ -232,7 +232,7 @@ def fluxo_principal(b, url, saida):
     pg.focus("#stateTags .tag[tabindex='0']")
     pg.keyboard.press("ArrowRight")
     checa(pg.get_attribute("#stateTags .tag:has-text('Bom')", "aria-checked") == "true"
-          and pg.evaluate("document.activeElement.textContent.trim()") == "👌 Bom", "seta muda o estado e leva o foco")
+          and pg.evaluate("document.activeElement.textContent.trim()") == "\U0001F44C Bom", "seta muda o estado e leva o foco")
     checa(pg.locator("#stateTags .tag[tabindex='0']").count() == 1, "so um estado entra no Tab")
     pg.keyboard.press("ArrowLeft")
 
@@ -269,7 +269,7 @@ def fluxo_principal(b, url, saida):
     pg.wait_for_timeout(900)
     codigo_card = pg.inner_text("#histList .hist-code") if pg.locator("#histList .hist-code").count() else ""
     checa(bool(cod) and cod.group(1) in codigo_card, "codigo aparece no card do historico")
-    checa(pg.inner_text("#histList .hist-name").count("👟") == 1, "emoji nao duplica no nome")
+    checa(pg.inner_text("#histList .hist-name").count("\U0001F45F") == 1, "emoji nao duplica no nome")
     checa(pg.inner_text("#cntDisp").strip() == "1", "contador de disponiveis = 1")
     foto(pg, saida / "6-historico.png", True)
     if cod:
@@ -303,7 +303,7 @@ def fluxo_principal(b, url, saida):
     # status pelos botoes criados no historico (delegacao de evento)
     pg.click("#histList [data-action='status'][data-para='reserved']")
     pg.wait_for_timeout(400)
-    checa(pg.inner_text("#histList .hist-status") == "● Reservado" and pg.inner_text("#cntRes").strip() == "1", "reservar muda o card e o contador")
+    checa(pg.inner_text("#histList .hist-status") == "\u25CF Reservado" and pg.inner_text("#cntRes").strip() == "1", "reservar muda o card e o contador")
     up = escritas(pg, "update", "products")
     checa(len(up) == 1 and up[0]["dados"] == {"status": "reserved", "soldAt": None}, "reserva grava status e soldAt nulo")
     ev = escritas(pg, "add", "events")
@@ -311,12 +311,12 @@ def fluxo_principal(b, url, saida):
           "evento gravado com o uid e a transicao")
     pg.click("#histList [data-action='status'][data-para='sold']")
     pg.wait_for_timeout(1000)
-    checa(pg.inner_text("#histList .hist-status") == "✓ Vendido" and pg.inner_text("#cntVend").strip() == "1", "venda muda o card e o contador de hoje")
+    checa(pg.inner_text("#histList .hist-status") == "\u2713 Vendido" and pg.inner_text("#cntVend").strip() == "1", "venda muda o card e o contador de hoje")
     vendas = escritas(pg, "add", "sales")
     checa(len(vendas) == 1 and vendas[0]["dados"]["sellerId"] == "uid-teste" and vendas[0]["dados"]["type"] == "online"
           and vendas[0]["dados"]["valor"] == 45, "venda online gravada com o uid")
     aberturas = pg.evaluate("window.__aberturas")
-    checa(len(aberturas) == 1 and aberturas[0].startswith("https://wa.me/5511988887777?text=") and "VENDA%20REGISTRADA" in aberturas[0],
+    checa(len(aberturas) == 1 and aberturas[0].startswith("https://wa.me/5511900000001?text=") and "VENDA%20REGISTRADA" in aberturas[0],
           "alerta de venda vai pro WhatsApp da vendedora")
     foto(pg, saida / "6b-historico-vendido.png", True)
 
