@@ -1244,3 +1244,25 @@ textarea {
 @media (min-width: 540px) {
   .app { padding-top: var(--sp-2) }
 }
+
+/* ─── Busca por codigo e codigo no card (reclamacao da Gloria) ─────── */
+.hist-search {
+  width: 100%;
+  padding: var(--sp-3, 11px) var(--sp-4, 13px);
+  margin-bottom: var(--sp-3, 11px);
+  background: var(--card, #1b1f27);
+  border: 1px solid var(--border, #2b3039);
+  border-radius: 12px;
+  color: var(--text, #e8eaed);
+  font-size: .95rem;
+}
+.hist-search:focus-visible {
+  outline: 2px solid var(--primary, #ff7a59);
+  outline-offset: 1px;
+}
+.hist-code {
+  font-size: .78rem;
+  letter-spacing: .5px;
+  color: var(--text-faint, #9aa0aa);
+  margin-top: 2px;
+}

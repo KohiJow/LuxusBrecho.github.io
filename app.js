@@ -77,8 +77,6 @@ function carregarConfigSalva() {
     if (cfg.brecoNome) document.getElementById('brecoNome').value = cfg.brecoNome;
     if (cfg.seuNome)   document.getElementById('seuNome').value   = cfg.seuNome;
     if (cfg.meuTel)    document.getElementById('meuTel').value    = cfg.meuTel;
-    const cbIA = document.getElementById('usarIA');
-    if (cbIA) cbIA.checked = !!cfg.usarIA;
   } catch (e) {}
 }
 
@@ -87,8 +85,7 @@ function salvarConfig() {
     telefone:  document.getElementById('telefone').value.trim(),
     brecoNome: document.getElementById('brecoNome').value.trim(),
     seuNome:   document.getElementById('seuNome').value.trim(),
-    meuTel:    document.getElementById('meuTel').value.trim(),
-    usarIA:    !!(document.getElementById('usarIA') || {}).checked
+    meuTel:    document.getElementById('meuTel').value.trim()
   };
   try {
     localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
@@ -102,7 +99,7 @@ window.salvarConfig = salvarConfig;
    FIRESTORE: Persistência
 ════════════════════════════════════════════ */
 
-let _foto64 = null, _fotoFile = null, _msg = '', _dark = true, _cfgOpen = false, _currentTab = 'anuncio';
+let _foto64 = null, _fotoFile = null, _msg = '', _histFiltro = '', _dark = true, _cfgOpen = false, _currentTab = 'anuncio';
 let _products = [];
 
 // Backend Luxus IA. Em produção (GitHub Pages) usa o domínio público com HTTPS;
@@ -400,6 +397,12 @@ window.registrarVendaFisica = registrarVendaFisica;
    UI: Render Histórico
 ════════════════════════════════════════════ */
 
+function buscarHist(q) {
+  _histFiltro = (q || '').trim().toLowerCase();
+  renderHistory();
+}
+window.buscarHist = buscarHist;
+
 function renderHistory() {
   const list = document.getElementById('histList');
   const vendasHoje = _products.filter(p => p.status === 'sold' && ehHoje(p.soldAt));
@@ -470,58 +473,27 @@ window.removerVendaFisica = removerVendaFisica;
    IA: backend próprio (Ollama: qwen2.5 + moondream)
 ════════════════════════════════════════════ */
 
-async function callIA(dados, imgB64) {
-  const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), 45000); // 45s: acima disso quem está na loja desiste
-
-  // mostra aviso após 8s sem cancelar a request
-  const lentoMsg = setTimeout(() => showRetry('A IA está escrevendo, isso leva de 30 a 60 segundos.'), 8000);
-
-  let resp;
-  try {
-    resp = await fetch(IA_BASE_URL + '/ia/anuncio', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        brecho:         dados.nome,
-        categorias:     dados.cats,
-        estado:         dados.estado,
-        tamanho:        dados.tam,
-        observacao:     dados.obs,
-        imagem_base64:  imgB64 || null,
-        sellerId:       currentSellerId || 'anon'
-      }),
-      signal: ctrl.signal
-    });
-  } catch (e) {
-    clearTimeout(tid); clearTimeout(lentoMsg); hideRetry();
-    throw new Error(e.name === 'AbortError'
-      ? 'A IA demorou demais. Tente novamente.'
-      : 'Sem conexão com o servidor de IA.');
-  }
-  clearTimeout(tid); clearTimeout(lentoMsg);
-
-  const body = await resp.json().catch(() => ({}));
-  if (resp.status === 429) { hideRetry(); throw new Error('⏳ Muitos pedidos. Aguarde alguns segundos.'); }
-  if (resp.status === 503) { hideRetry(); throw new Error('IA indisponível agora.'); }
-  if (resp.status === 504) { hideRetry(); throw new Error('A IA demorou demais. Tente novamente.'); }
-  if (!resp.ok)            { hideRetry(); throw new Error('Erro no servidor de IA (' + resp.status + ').'); }
-  hideRetry();
-  return body.texto || '';
-}
 
 /* ════════════════════════════════════════════
    WHATSAPP: Link rastreável
 ════════════════════════════════════════════ */
 
-function buildLink(tel, nome, cats, precoStr, tam, prodCod) {
+function buildLink(tel, nome, cats, precoStr, tam, prodCod, obs) {
   const t = tel.replace(/\D/g, '').slice(0, 15); if (!t) return null;
-  const catLabel  = cats && cats.length ? cats[0].replace(/^\S+\s/, '') : 'peça';
-  const tamPart   = tam      ? ' tamanho ' + tam         : '';
-  const pricePart = precoStr ? ' R$ ' + precoStr         : '';
-  const nomePart  = nome     ? ' do ' + nome.slice(0, 30) : '';
-  const codPart   = prodCod  ? ' [#' + prodCod + ']'     : '';
-  const txt = 'Oi! Vi a ' + catLabel + tamPart + pricePart + nomePart + codPart + ' e tenho interesse 😊';
+  // Mensagem que o cliente manda ao clicar: identifica a peça de forma clara,
+  // com o detalhe que a vendedora escreveu e o codigo em destaque, pra Gloria
+  // saber na hora qual peça é (e poder buscar pelo codigo no historico).
+  const catLabel = cats && cats.length ? cats[0].replace(/^\S+\s/, '') : 'peça';
+  const ico      = cats && cats.length ? cats[0].split(' ')[0] : '🛍️';
+  const detalhe  = obs ? ' ' + obs.trim().replace(/\s*\.?\s*$/, '') : '';
+  const tamPart  = tam ? ' (tam ' + tam + ')' : '';
+  const linhaItem  = ico + ' ' + catLabel + detalhe + tamPart;
+  const linhaPreco = precoStr ? '\n💰 R$ ' + precoStr : '';
+  const linhaCod   = prodCod ? '\n🔖 Código ' + prodCod : '';
+  const loja = nome ? ' do ' + nome.slice(0, 30) : '';
+  const txt = 'Oi! Tenho interesse nesta peça' + loja + ' 😊\n\n'
+            + linhaItem + linhaPreco + linhaCod
+            + '\n\n(cheguei pelo anúncio do grupo)';
   return 'https://wa.me/' + t + '?text=' + encodeURIComponent(txt);
 }
 
@@ -609,32 +581,21 @@ async function gerarPost() {
 
   const precoStr = preco.toFixed(2).replace('.', ',');
   const _prodCod = Date.now().toString(36).slice(-3).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
-  const link     = buildLink(tel, nome, cats, precoStr, tam, _prodCod);
+  const link     = buildLink(tel, nome, cats, precoStr, tam, _prodCod, obs);
   if (!link) { showErr('⚠️ Telefone inválido. Use apenas números com DDD.'); return; }
 
   setLoading(true);
 
-  // O anúncio é montado aqui mesmo, na hora e sem custo. A IA virou um extra
-  // opcional: desligada nem é chamada, e ligada, se falhar, o texto local entra
-  // no lugar sem travar a venda.
-  let desc = descLocal(cats, estado, tam, obs);
-  const querIA = !!(document.getElementById('usarIA') || {}).checked;
-  if (querIA) {
-    try {
-      const imgB64 = _foto64 ? _foto64.split(',')[1] : null;  // backend espera base64 puro
-      const r = await callIA({ nome, cats, estado, tam, obs }, imgB64);
-      if (r) desc = finalizarDesc(r);
-    } catch (err) {
-      showErr(err.message + ' Usei o texto automático.');
-    }
-  }
+  // O anúncio é montado aqui mesmo, no navegador, na hora e sem custo.
+  const desc = descLocal(cats, estado, tam, obs);
 
   const estLabel = estado.length ? estado[0].replace(/^\S+\s/, '') : '';
   const emoji    = cats.length   ? cats[0].split(' ')[0]           : '📦';
   const tamStr   = tam ? '\nTamanho: *' + tam + '*' : '';
 
   _msg = emoji + ' *' + nome + '*\n\n' + desc + '\n\n💰 *R$ ' + precoStr + '*' + tamStr
-       + '\n🏷️ ' + estLabel + '\n\n👉 Clique para reservar:\n' + link;
+       + '\n🏷️ ' + estLabel + '\n🔖 Código *' + _prodCod + '*'
+       + '\n\n👉 Clique para reservar:\n' + link;
 
   const product = {
     ts: Date.now(), emoji, cats, estado, estLabel, tam, obs,
