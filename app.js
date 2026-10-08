@@ -1,7 +1,7 @@
 'use strict';
 
 /* ════════════════════════════════════════════
-   AUTH — Firebase Authentication
+   AUTH: Firebase Authentication
 ════════════════════════════════════════════ */
 
 // BUG 4 FIX: IDs como strings (não notação científica)
@@ -63,7 +63,7 @@ function fazerLogout() { auth.signOut(); _products = []; }
 window.fazerLogout = fazerLogout;
 
 /* ════════════════════════════════════════════
-   CONFIG — localStorage
+   CONFIG: localStorage
 ════════════════════════════════════════════ */
 
 const CFG_KEY = 'brecho_cfg_v2';
@@ -93,13 +93,13 @@ function salvarConfig() {
   try {
     localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
     toast('✅ Configurações salvas!');
-    setTimeout(() => { _cfgOpen = false; document.getElementById('cfgCard').style.display = 'none'; }, 800);
+    setTimeout(() => { if (_cfgOpen) toggleConfig(); }, 800);
   } catch (e) { toast('Erro ao salvar.'); }
 }
 window.salvarConfig = salvarConfig;
 
 /* ════════════════════════════════════════════
-   FIRESTORE — Persistência
+   FIRESTORE: Persistência
 ════════════════════════════════════════════ */
 
 let _foto64 = null, _fotoFile = null, _msg = '', _dark = true, _cfgOpen = false, _currentTab = 'anuncio';
@@ -149,7 +149,7 @@ async function addSaleToDb(sale) {
 }
 
 /* ════════════════════════════════════════════
-   UI — Tema, Tabs, Config
+   UI: Tema, Tabs, Config
 ════════════════════════════════════════════ */
 
 function applyTheme(dark) {
@@ -167,6 +167,8 @@ window.toggleTheme = toggleTheme;
 function toggleConfig() {
   _cfgOpen = !_cfgOpen;
   document.getElementById('cfgCard').style.display = _cfgOpen ? 'block' : 'none';
+  const btn = document.getElementById('btnConfig');
+  if (btn) btn.setAttribute('aria-expanded', _cfgOpen ? 'true' : 'false');
 }
 window.toggleConfig = toggleConfig;
 
@@ -174,14 +176,18 @@ function switchTab(tab) {
   _currentTab = tab;
   document.getElementById('pageAnuncio').style.display   = tab === 'anuncio'   ? 'block' : 'none';
   document.getElementById('pageHistorico').style.display = tab === 'historico' ? 'block' : 'none';
-  document.getElementById('tabAnuncio').classList.toggle('active',   tab === 'anuncio');
-  document.getElementById('tabHistorico').classList.toggle('active', tab === 'historico');
+  const tA = document.getElementById('tabAnuncio');
+  const tH = document.getElementById('tabHistorico');
+  tA.classList.toggle('active',   tab === 'anuncio');
+  tH.classList.toggle('active',   tab === 'historico');
+  tA.setAttribute('aria-selected', tab === 'anuncio'   ? 'true' : 'false');
+  tH.setAttribute('aria-selected', tab === 'historico' ? 'true' : 'false');
   if (tab === 'historico') renderHistory();
 }
 window.switchTab = switchTab;
 
 /* ════════════════════════════════════════════
-   UI — Foto
+   UI: Foto
 ════════════════════════════════════════════ */
 
 function handlePhoto(e) {
@@ -225,19 +231,38 @@ function removePhoto() {
 window.removePhoto = removePhoto;
 
 /* ════════════════════════════════════════════
-   UI — Tags, feedback, loading
+   UI: Tags, feedback, loading
 ════════════════════════════════════════════ */
 
-function toggleTag(el)        { el.classList.toggle('active'); }
+function marcarTag(el, on) {
+  el.classList.toggle('active', on);
+  el.setAttribute('aria-checked', on ? 'true' : 'false');
+}
+function toggleTag(el)        { marcarTag(el, !el.classList.contains('active')); }
 function toggleSingle(el, gid) {
-  document.querySelectorAll('#' + gid + ' .tag').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
+  document.querySelectorAll('#' + gid + ' .tag').forEach(t => marcarTag(t, false));
+  marcarTag(el, true);
 }
 function getActive(gid) {
   return Array.from(document.querySelectorAll('#' + gid + ' .tag.active')).map(t => t.textContent.trim());
 }
 window.toggleTag    = toggleTag;
 window.toggleSingle = toggleSingle;
+
+// as tags têm tabindex, então Enter e espaço precisam funcionar como o toque
+function ligarTecladoNasTags() {
+  ['catTags', 'stateTags'].forEach(gid => {
+    const box = document.getElementById(gid);
+    if (!box) return;
+    box.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      const tag = e.target.closest ? e.target.closest('.tag') : null;
+      if (!tag) return;
+      e.preventDefault();
+      gid === 'catTags' ? toggleTag(tag) : toggleSingle(tag, gid);
+    });
+  });
+}
 
 function showErr(m)   { const e = document.getElementById('errBar');   e.textContent = m; e.classList.add('on'); }
 function hideErr()    { document.getElementById('errBar').classList.remove('on'); }
@@ -255,7 +280,7 @@ function setLoading(on) {
   b.disabled = on;
   b.innerHTML = on
     ? '<div class="dots"><span></span><span></span><span></span></div> Gerando…'
-    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Gerar mensagem com IA';
+    : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Gerar anúncio';
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -277,7 +302,7 @@ function updatePendBadge() {
 }
 
 /* ════════════════════════════════════════════
-   FIRESTORE — Status dos produtos
+   FIRESTORE: Status dos produtos
 ════════════════════════════════════════════ */
 
 async function changeStatus(id, newStatus) {
@@ -309,7 +334,7 @@ function dispararAlertaVenda(p) {
   const meuNome = (document.getElementById('seuNome').value || '').trim() || 'Vendedor';
   const now = new Date();
   const isPhysical = p.type === 'physical';
-  const msg = '🧾 *VENDA REGISTRADA — ' + (p.brecoNome || 'Brechó') + '*\n\n'
+  const msg = '🧾 *VENDA REGISTRADA: ' + (p.brecoNome || 'Brechó') + '*\n\n'
     + (isPhysical ? '🏪 Venda física\n' : '')
     + '📦 Produto: ' + (p.emoji || '📦') + ' ' + (p.cats?.join('/') || 'Peça') + (p.tam ? ' (' + p.tam + ')' : '')
     + '\n💰 Valor: R$ ' + p.precoStr
@@ -324,7 +349,7 @@ function dispararAlertaVenda(p) {
 }
 
 /* ════════════════════════════════════════════
-   UI — Modal venda física
+   UI: Modal venda física
 ════════════════════════════════════════════ */
 
 function abrirModalVendaFisica() {
@@ -372,7 +397,7 @@ async function registrarVendaFisica() {
 window.registrarVendaFisica = registrarVendaFisica;
 
 /* ════════════════════════════════════════════
-   UI — Render Histórico
+   UI: Render Histórico
 ════════════════════════════════════════════ */
 
 function renderHistory() {
@@ -423,8 +448,8 @@ function renderHistory() {
 
     const itemClass = isPhysical ? 'hist-item physical-item' : 'hist-item';
     return '<div class="' + itemClass + '"><div class="hist-item-top">' + thumbHtml
-      + '<div class="hist-info"><div class="hist-name">' + (p.emoji || '') + ' ' + (p.cats.join(', ') || 'Produto') + (p.tam ? ' · ' + p.tam : '') + '</div>'
-      + '<div class="hist-meta">' + (p.brecoNome || 'Brechó') + (p.estLabel ? ' · ' + p.estLabel : '') + '</div>'
+      + '<div class="hist-info"><div class="hist-name">' + (p.emoji || '') + ' ' + (p.cats.join(', ') || 'Produto') + (p.tam ? ' | ' + p.tam : '') + '</div>'
+      + '<div class="hist-meta">' + (p.brecoNome || 'Brechó') + (p.estLabel ? ' | ' + p.estLabel : '') + '</div>'
       + '<div class="hist-price">R$ ' + p.precoStr + '</div></div></div>'
       + '<div class="hist-status ' + statusClass + '">' + statusLabel + '</div>'
       + '<div class="hist-time">' + data + ' às ' + hora + '</div>'
@@ -442,7 +467,7 @@ async function removerVendaFisica(id) {
 window.removerVendaFisica = removerVendaFisica;
 
 /* ════════════════════════════════════════════
-   IA — backend próprio (Ollama: qwen2.5 + moondream)
+   IA: backend próprio (Ollama: qwen2.5 + moondream)
 ════════════════════════════════════════════ */
 
 async function callIA(dados, imgB64) {
@@ -450,7 +475,7 @@ async function callIA(dados, imgB64) {
   const tid  = setTimeout(() => ctrl.abort(), 45000); // 45s: acima disso quem está na loja desiste
 
   // mostra aviso após 8s sem cancelar a request
-  const lentoMsg = setTimeout(() => showRetry('⏳ A IA está pensando… isso leva ~30–60s.'), 8000);
+  const lentoMsg = setTimeout(() => showRetry('A IA está escrevendo, isso leva de 30 a 60 segundos.'), 8000);
 
   let resp;
   try {
@@ -486,7 +511,7 @@ async function callIA(dados, imgB64) {
 }
 
 /* ════════════════════════════════════════════
-   WHATSAPP — Link rastreável
+   WHATSAPP: Link rastreável
 ════════════════════════════════════════════ */
 
 function buildLink(tel, nome, cats, precoStr, tam, prodCod) {
@@ -565,7 +590,7 @@ function descLocal(cats, estado, tam, obs) {
 
 /* ════════════════════════════════════════════
    Gerar post principal
-   Prompt vive no backend — front só envia os dados.
+   Prompt vive no backend: front só envia os dados.
 ════════════════════════════════════════════ */
 
 async function gerarPost() {
@@ -641,7 +666,7 @@ async function gerarPost() {
 window.gerarPost = gerarPost;
 
 /* ════════════════════════════════════════════
-   WHATSAPP — Copiar / Compartilhar
+   WHATSAPP: Copiar / Compartilhar
 ════════════════════════════════════════════ */
 
 function copiar() {
@@ -691,8 +716,8 @@ function novoAnuncio() {
   document.getElementById('preco').value   = '';
   document.getElementById('tamanho').value = '';
   document.getElementById('obs').value     = '';
-  document.querySelectorAll('#catTags .tag').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('#stateTags .tag').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('#catTags .tag').forEach(t => marcarTag(t, false));
+  document.querySelectorAll('#stateTags .tag').forEach((t, i) => marcarTag(t, i === 0));
   removePhoto(); hideStatus(); _msg = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -750,3 +775,4 @@ window.fecharCaixaHoje = fecharCaixaHoje;
    INIT
 ════════════════════════════════════════════ */
 applyTheme(true);
+ligarTecladoNasTags();

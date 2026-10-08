@@ -42,6 +42,21 @@ cliente esperando não tem esse tempo.
 Com a opção ligada, se o modelo demorar ou estiver fora do ar, o anúncio sai
 com o texto local do mesmo jeito. A venda nunca trava por causa da IA.
 
+## Interface
+
+Quem usa é a vendedora, no celular, de pé na loja, muitas vezes com a cliente
+esperando. A tela foi feita a partir disso:
+
+- Todo alvo de toque tem no mínimo 44px de altura, incluindo as tags de
+  categoria e os botões de ação do histórico
+- `:hover` só entra dentro de `@media (hover:hover)`, senão o estado fica colado
+  depois do toque no celular
+- Todo elemento clicável tem retorno visual no toque e contorno visível no
+  teclado, e as tags respondem a Enter e espaço
+- Tema claro e escuro com paleta própria: as cores de texto sobre fundo colorido
+  mudam junto, para não cair em cinza claro sobre bege
+- Espaçamento vem de uma escala única de tokens, nada de valor solto
+
 ## Controle de vendas
 
 - Cada anúncio gera um link `wa.me` com código do produto e nome da vendedora,

@@ -6,9 +6,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Luxus">
-  <meta name="theme-color" content="#1c1511" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#fff6ed" media="(prefers-color-scheme: light)">
-  <title>Luxus Brechó · Anúncios</title>
+  <meta name="description" content="Monta o anúncio da peça pronto para o grupo de WhatsApp do brechó, com preço, link de reserva e controle de vendido.">
+  <meta name="theme-color" content="#0D0D0F" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#FFF7EF" media="(prefers-color-scheme: light)">
+  <title>Luxus Brechó | Anúncios</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,81 +17,77 @@
 </head>
 <body>
 
-<!-- ════════════════════════════════════════
-     LOGIN
-════════════════════════════════════════ -->
-<div id="loginScreen" style="display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:24px;background:var(--bg);">
-  <div style="width:100%;max-width:360px;">
-    <div style="text-align:center;margin-bottom:28px;">
-      <div style="width:52px;height:52px;background:linear-gradient(135deg,var(--primary),#ffd2a3);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 6px 20px var(--primary-glow);">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+<!-- ===================== LOGIN ===================== -->
+<!-- o app.js alterna display entre flex e none, por isso o inline fica aqui -->
+<div class="login-screen" id="loginScreen" style="display:flex">
+  <div class="login-box">
+
+    <div class="login-head">
+      <div class="login-mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       </div>
-      <h1 style="font-size:1.4rem;font-weight:800;color:var(--text);">Brechó Post IA</h1>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-top:4px;">Entre com sua conta para continuar</p>
+      <h1>Luxus Brechó</h1>
+      <p>Entre com sua conta para anunciar</p>
     </div>
 
-    <!-- BUG 3 FIX: <form> envolve os campos de senha para que gerenciadores de senha funcionem -->
-    <form id="loginForm" onsubmit="fazerLogin(); return false;"
-          style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;">
+    <!-- form de verdade: o gerenciador de senhas do celular precisa dele -->
+    <form class="login-card" id="loginForm" onsubmit="fazerLogin(); return false;">
       <div class="field">
         <label for="loginEmail">Email</label>
-        <input type="email" id="loginEmail" placeholder="gloria@email.com"
-               autocomplete="email" inputmode="email"
+        <input type="email" id="loginEmail" placeholder="voce@email.com"
+               autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false"
                onkeydown="if(event.key==='Enter') document.getElementById('loginSenha').focus()">
       </div>
       <div class="field">
         <label for="loginSenha">Senha</label>
-        <input type="password" id="loginSenha" placeholder="••••••••"
+        <input type="password" id="loginSenha" placeholder="Sua senha"
                autocomplete="current-password"
                onkeydown="if(event.key==='Enter') fazerLogin()">
       </div>
-      <div id="loginErr" role="alert"
-           style="font-size:.78rem;color:var(--error);margin-bottom:10px;min-height:18px;text-align:center;"></div>
+      <div class="login-err" id="loginErr" role="alert"></div>
       <button id="btnLogin" class="btn btn-primary" type="submit">Entrar</button>
     </form>
+
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     APP
-════════════════════════════════════════ -->
+<!-- ===================== APP ===================== -->
 <div id="appWrapper" style="display:none">
   <div class="app">
 
-    <!-- Header -->
+    <!-- Cabeçalho -->
     <header class="header">
       <div class="logo" aria-hidden="true">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       </div>
       <div class="header-text">
         <h1>Luxus Brechó</h1>
-        <p id="modelLabel">IA Luxus · Link rastreável</p>
+        <p id="modelLabel">Anúncio pronto, com link de reserva</p>
       </div>
-      <div id="loggedEmail" aria-label="Email logado"
-           style="font-size:.7rem;color:var(--text-faint);margin-left:auto;align-self:center;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
       <div class="header-actions">
-        <button class="icon-btn" onclick="fazerLogout()" type="button" title="Sair" style="margin-right:2px" aria-label="Sair da conta">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        </button>
-        <button class="icon-btn" onclick="toggleTheme()" type="button" aria-label="Alternar tema claro/escuro">
-          <svg id="themeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <button class="icon-btn" onclick="toggleTheme()" type="button" aria-label="Alternar tema claro e escuro">
+          <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
         <button class="icon-btn" onclick="toggleConfig()" type="button" aria-label="Configurações" aria-expanded="false" id="btnConfig">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        </button>
+        <button class="icon-btn" onclick="fazerLogout()" type="button" title="Sair" aria-label="Sair da conta">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </div>
+      <div id="loggedEmail" class="header-user" aria-label="Email logado"></div>
     </header>
 
-    <!-- Config Card -->
+    <!-- Configurações -->
     <div class="card" id="cfgCard" style="display:none" role="region" aria-label="Configurações">
       <div class="card-header"><div class="dot" aria-hidden="true"></div><span class="card-title">Configurações</span></div>
 
       <div class="field">
-        <label for="telefone">📱 Telefone do brechó <span style="color:var(--primary);font-weight:800;" aria-label="obrigatório">*</span></label>
-        <input type="tel" id="telefone" placeholder="5511999998888 (com DDI+DDD)" inputmode="numeric" autocomplete="tel">
-        <div class="info-badge badge-sec" style="margin-top:6px">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p>Este é o número que recebe os clientes interessados. <strong>Só mude isso normalmente.</strong></p>
+        <label for="telefone">Telefone do brechó <span class="req" aria-label="obrigatório">*</span></label>
+        <input type="tel" id="telefone" placeholder="5511999998888" inputmode="numeric" autocomplete="tel">
+        <div class="info-badge badge-sec">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>Número que recebe as clientes interessadas, com DDI e DDD. <strong>Normalmente é o único campo que muda.</strong></p>
         </div>
       </div>
 
@@ -101,80 +98,75 @@
         </div>
         <div class="field">
           <label for="seuNome">Seu nome</label>
-          <input type="text" id="seuNome" placeholder="Ex: João" autocomplete="off">
+          <input type="text" id="seuNome" placeholder="Quem está vendendo" autocomplete="off">
         </div>
       </div>
-      <div class="field">
-        <div style="margin:14px 0 10px;padding:12px;border-radius:10px;background:var(--bg);border:1px solid var(--border);">
-          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">
-            <input type="checkbox" id="usarIA" style="margin-top:3px;width:auto;flex:none;">
-            <span>
-              <strong>Melhorar o texto com IA</strong><br>
-              <span style="font-size:.82rem;opacity:.75;">
-                Desligado, o anúncio sai na hora. Ligado, o texto passa pela IA e
-                pode levar de 30 a 60 segundos. Se a IA não responder, o anúncio
-                sai do mesmo jeito.
-              </span>
-            </span>
-          </label>
-        </div>
 
-        <label for="meuTel">Seu WhatsApp (alertas de venda)</label>
+      <label class="check-row">
+        <input type="checkbox" id="usarIA">
+        <span>
+          <strong>Melhorar o texto com IA</strong>
+          <small>Desligado, o anúncio sai na hora. Ligado, o texto passa pela IA e pode levar de 30 a 60 segundos. Se a IA não responder, o anúncio sai do mesmo jeito.</small>
+        </span>
+      </label>
+
+      <div class="field">
+        <label for="meuTel">Seu WhatsApp, para os alertas de venda</label>
         <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric" autocomplete="tel">
       </div>
 
-      <button class="btn btn-primary" style="margin-top:14px" onclick="salvarConfig()" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      <button class="btn btn-primary" onclick="salvarConfig()" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         Salvar configurações
       </button>
     </div>
 
-    <!-- Tabs -->
-    <nav class="nav" aria-label="Seções do app">
-      <button class="nav-btn active" id="tabAnuncio" onclick="switchTab('anuncio')" type="button" aria-selected="true" role="tab">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    <!-- Abas -->
+    <nav class="nav" role="tablist" aria-label="Seções do app">
+      <button class="nav-btn active" id="tabAnuncio" onclick="switchTab('anuncio')" type="button" role="tab" aria-selected="true" aria-controls="pageAnuncio">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         Anunciar
       </button>
-      <button class="nav-btn" id="tabHistorico" onclick="switchTab('historico')" type="button" aria-selected="false" role="tab">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+      <button class="nav-btn" id="tabHistorico" onclick="switchTab('historico')" type="button" role="tab" aria-selected="false" aria-controls="pageHistorico">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
         Histórico
         <span class="badge" id="pendBadge" aria-live="polite" aria-label="produtos pendentes">0</span>
       </button>
     </nav>
 
-    <!-- ═══ ABA ANUNCIAR ═══ -->
-    <div id="pageAnuncio" role="tabpanel">
+    <!-- ===== Aba anunciar ===== -->
+    <div id="pageAnuncio" role="tabpanel" aria-labelledby="tabAnuncio">
       <div class="card">
         <div class="card-header"><div class="dot" aria-hidden="true"></div><span class="card-title">Produto</span></div>
 
         <div id="photoArea">
-          <!-- Sem foto: dois botões -->
+          <!-- sem foto: câmera ou galeria -->
           <div class="photo-btns" id="photoBtns">
             <div class="photo-btn">
               <input type="file" id="fotoCamera" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment"
-                     onchange="handlePhoto(event)" aria-label="Tirar foto com câmera">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              <span>📷 Câmera</span>
+                     onchange="handlePhoto(event)" aria-label="Tirar foto com a câmera">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Câmera</span>
             </div>
             <div class="photo-btn">
               <input type="file" id="fotoGaleria" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                     onchange="handlePhoto(event)" aria-label="Escolher da galeria">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              <span>🖼️ Galeria</span>
+                     onchange="handlePhoto(event)" aria-label="Escolher foto da galeria">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>Galeria</span>
             </div>
           </div>
-          <!-- Com foto: preview + remover -->
+          <!-- com foto: prévia e botão de remover -->
           <div class="upload-zone has-img" id="previewZone" style="display:none">
             <img id="preview" alt="Prévia do produto">
             <button class="rm-photo" onclick="removePhoto()" type="button" aria-label="Remover foto">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
         </div>
 
-        <div class="grid-2" style="margin-top:14px">
+        <div class="grid-2">
           <div class="field">
-            <label for="preco">Preço (R$) <span aria-label="obrigatório">*</span></label>
+            <label for="preco">Preço <span class="req" aria-label="obrigatório">*</span></label>
             <div class="input-pre"><span class="pre" aria-hidden="true">R$</span>
               <input type="number" id="preco" placeholder="0,00" step="0.01" min="0"
                      inputmode="decimal" enterkeyhint="next" required aria-required="true">
@@ -182,7 +174,7 @@
           </div>
           <div class="field">
             <label for="tamanho">Tamanho</label>
-            <input type="text" id="tamanho" placeholder="P, M, G, 38…" autocomplete="off" enterkeyhint="next">
+            <input type="text" id="tamanho" placeholder="P, M, G, 38" autocomplete="off" enterkeyhint="next">
           </div>
         </div>
 
@@ -206,58 +198,58 @@
           <div class="tag"        onclick="toggleSingle(this,'stateTags')" role="radio" aria-checked="false" tabindex="0">🏷️ Novo c/ etiqueta</div>
         </div>
 
-        <p class="sec-label"><label for="obs">Detalhes extras (opcional)</label></p>
-        <textarea id="obs" placeholder="Ex: camisa de time, bordado floral, vintage anos 90…" enterkeyhint="done"></textarea>
+        <p class="sec-label"><label for="obs">Detalhes extras, se tiver</label></p>
+        <textarea id="obs" placeholder="Camisa de time, bordado floral, vintage anos 90" enterkeyhint="done"></textarea>
       </div>
 
       <div class="status-bar err" id="errBar" role="alert" aria-live="assertive"></div>
       <div class="status-bar warn" id="retryBar" role="status" aria-live="polite"></div>
 
       <button class="btn btn-primary" id="btnGerar" onclick="gerarPost()" type="button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        Gerar mensagem com IA
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Gerar anúncio
       </button>
 
       <!-- Resultado -->
-      <div class="result-card" id="resultCard" role="region" aria-label="Resultado gerado">
+      <div class="result-card" id="resultCard" role="region" aria-label="Anúncio gerado">
         <div class="result-top avail">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Mensagem pronta! Salva no histórico.</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Anúncio pronto e salvo no histórico</span>
         </div>
         <div class="result-body">
           <div class="link-prev">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            <div class="lt"><strong>Link de rastreio ativo — cliente chega identificando o produto</strong><span id="linkTxt">wa.me/55…</span></div>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <div class="lt"><strong>A cliente chega já dizendo qual peça quer</strong><span id="linkTxt">wa.me/55</span></div>
           </div>
-          <div class="msg-box" id="msgResult" aria-label="Mensagem gerada" tabindex="0"></div>
-          <p class="hint">Segure o texto para selecionar · ou use os botões</p>
+          <div class="msg-box" id="msgResult" aria-label="Texto do anúncio" tabindex="0"></div>
+          <p class="hint">Segure o texto para selecionar, ou use os botões</p>
           <button class="btn btn-primary" onclick="copiar()" type="button">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             Copiar mensagem
           </button>
           <button class="btn btn-ghost" id="btnShareWpp" onclick="compartilharWpp()" type="button">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
             Compartilhar com foto no WhatsApp
           </button>
           <div class="divider"></div>
           <button class="btn btn-ghost" onclick="novoAnuncio()" type="button">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
-            Anunciar outro produto
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+            Anunciar outra peça
           </button>
         </div>
       </div>
     </div>
 
-    <!-- ═══ ABA HISTÓRICO ═══ -->
-    <div id="pageHistorico" style="display:none" role="tabpanel">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <!-- ===== Aba histórico ===== -->
+    <div id="pageHistorico" style="display:none" role="tabpanel" aria-labelledby="tabHistorico">
+      <div class="grid-2">
         <button class="btn btn-purple" onclick="abrirModalVendaFisica()" type="button">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Venda Física
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Venda na loja
         </button>
         <button class="btn btn-primary" onclick="fecharCaixaHoje()" type="button">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-          Fechar Caixa
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          Fechar caixa
         </button>
       </div>
 
@@ -271,34 +263,34 @@
 
   </div><!-- /app -->
 
-  <!-- Modal Venda Física -->
+  <!-- Modal de venda na loja -->
   <div class="modal-overlay" id="modalVendaFisica" onclick="fecharModalVF(event)"
        role="dialog" aria-modal="true" aria-labelledby="modalVFTitle">
     <div class="modal">
       <div class="modal-title" id="modalVFTitle">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--physical)" stroke-width="2.2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-        Registrar Venda Física
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Registrar venda na loja
       </div>
       <div class="field">
-        <label for="vfDesc">Descrição do produto</label>
-        <input type="text" id="vfDesc" placeholder="Ex: Vestido floral P, Bolsa couro bege…" autocomplete="off">
+        <label for="vfDesc">O que foi vendido</label>
+        <input type="text" id="vfDesc" placeholder="Vestido floral P, bolsa de couro bege" autocomplete="off">
       </div>
       <div class="field">
-        <label for="vfPreco">Valor (R$) <span aria-label="obrigatório">*</span></label>
+        <label for="vfPreco">Valor <span class="req" aria-label="obrigatório">*</span></label>
         <div class="input-pre"><span class="pre" aria-hidden="true">R$</span>
           <input type="number" id="vfPreco" placeholder="0,00" step="0.01" min="0"
                  inputmode="decimal" aria-required="true">
         </div>
       </div>
-      <div class="info-badge" style="background:var(--physical-bg);border:1px solid var(--physical-border);margin-bottom:14px">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--physical)" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <p style="color:var(--physical)">Será contabilizada no fechamento do caixa de hoje junto com as vendas online.</p>
+      <div class="info-badge badge-phys">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>Entra no fechamento do caixa de hoje junto com as vendas online.</p>
       </div>
-      <button class="btn btn-purple" onclick="registrarVendaFisica()" type="button" style="margin-bottom:8px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-        Registrar Venda
+      <button class="btn btn-purple" onclick="registrarVendaFisica()" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        Registrar venda
       </button>
-      <button class="btn btn-ghost" onclick="fecharModalVF()" type="button" style="margin-top:0">Cancelar</button>
+      <button class="btn btn-ghost" onclick="fecharModalVF()" type="button">Cancelar</button>
     </div>
   </div>
 
@@ -306,7 +298,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- Firebase SDKs -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
