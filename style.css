@@ -369,7 +369,7 @@ body {
 
 .nav-btn {
   flex: 1;
-  min-height: 42px;
+  min-height: var(--touch);
   border: none;
   border-radius: var(--r-full);
   background: none;
@@ -684,8 +684,8 @@ textarea {
   position: absolute;
   top: var(--sp-2);
   right: var(--sp-2);
-  width: 38px;
-  height: 38px;
+  width: var(--touch);
+  height: var(--touch);
   display: none;
   align-items: center;
   justify-content: center;
@@ -733,7 +733,7 @@ textarea {
 }
 
 .tag {
-  min-height: 42px;
+  min-height: var(--touch);
   display: inline-flex;
   align-items: center;
   padding: 0 var(--sp-4);
@@ -820,7 +820,7 @@ textarea {
 
 .btn-sm {
   flex: 1;
-  min-height: 42px;
+  min-height: var(--touch);
   width: auto;
   padding: 0 var(--sp-3);
   font-size: var(--xs);

@@ -1,4 +1,4 @@
-# Brechó Post
+# Luxus Brechó
 
 Ferramenta web que transforma uma foto de peça em anúncio pronto para o grupo de
 WhatsApp do brechó: texto do produto, preço, link de reserva rastreável por
