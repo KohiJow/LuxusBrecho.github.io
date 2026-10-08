@@ -1,8 +1,14 @@
 /* Efeitos visuais do app. Tudo aqui é enfeite: se este arquivo falhar,
    o app continua funcionando igual, só sem as animações. Quem pediu menos
-   movimento no celular (prefers-reduced-motion) não vê nada disso. */
+   movimento no celular (prefers-reduced-motion) não vê nada disso.
+
+   O app.js não conhece este arquivo: ele só procura window.efeitos e, se
+   existir, usa contar() nos números do histórico e trocarTema() na troca de
+   tema. Fora isso, tudo aqui observa o DOM por conta própria. */
 (function () {
   'use strict';
+
+  const efeitos = window.efeitos = {};
 
   const reduz = window.matchMedia('(prefers-reduced-motion: reduce)');
   const semMovimento = () => reduz.matches;
@@ -44,24 +50,21 @@
   }
 
   /* 3. Troca de tema: o tema novo abre num círculo a partir do botão */
-  const trocaOriginal = window.toggleTheme;
-  if (typeof trocaOriginal === 'function' && document.startViewTransition) {
-    window.toggleTheme = function () {
-      if (semMovimento()) return trocaOriginal();
-      const { x, y } = ultimoToque;
-      const raio = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-      const t = document.startViewTransition(() => trocaOriginal());
-      t.ready.then(() => {
-        document.documentElement.animate(
-          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${raio}px at ${x}px ${y}px)`] },
-          { duration: 650, easing: 'cubic-bezier(.22,1,.36,1)', pseudoElement: '::view-transition-new(root)' }
-        );
-      }).catch(() => {});
-    };
-  }
+  efeitos.trocarTema = function (troca) {
+    if (semMovimento() || !document.startViewTransition) return troca();
+    const { x, y } = ultimoToque;
+    const raio = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const t = document.startViewTransition(troca);
+    t.ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${raio}px at ${x}px ${y}px)`] },
+        { duration: 650, easing: 'cubic-bezier(.22,1,.36,1)', pseudoElement: '::view-transition-new(root)' }
+      );
+    }).catch(() => {});
+  };
 
   /* 4. Números do histórico contam até o valor novo */
-  window.contar = function (el, alvo) {
+  efeitos.contar = function (el, alvo) {
     if (!el) return;
     const de = parseInt(el.textContent, 10) || 0;
     const id = (el._contaId || 0) + 1;
@@ -131,7 +134,7 @@
   if (aviso && 'MutationObserver' in window) {
     new MutationObserver(() => {
       if (!aviso.classList.contains('on') || !/Copiado/.test(aviso.textContent)) return;
-      document.querySelectorAll('[onclick^="copiar"]').forEach(b => {
+      document.querySelectorAll('[data-action="copiar"]').forEach(b => {
         b.classList.remove('ok');
         void b.offsetWidth;
         b.classList.add('ok');

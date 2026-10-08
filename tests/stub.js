@@ -5,9 +5,12 @@
 //   __falhaDb   se verdadeiro, a consulta de produtos falha com permission-denied
 //   __authCb    callback do onAuthStateChanged, pra "entrar" sem senha
 //   __escritas  tudo que o app tentou gravar, pra conferir o esquema
+//   __aberturas URLs que o app mandou pro window.open (WhatsApp), sem abrir nada
 (function () {
   const atraso = () => window.__atrasoDb || 0;
   window.__escritas = [];
+  window.__aberturas = [];
+  window.open = function (url) { window.__aberturas.push(String(url)); return null; };
   function consulta(nome) {
     const q = {
       where: () => q, orderBy: () => q, limit: () => q,

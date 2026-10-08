@@ -2,6 +2,11 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <!-- Script só daqui e do CDN do Firebase, nada inline: os botões usam data-action (app.js).
+       Estilo só daqui e do Google Fonts: nenhum style= no HTML, e o JS só mexe em classe e CSSOM.
+       frame-ancestors não funciona em <meta>, só em cabeçalho HTTP, que o GitHub Pages não deixa configurar. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; base-uri 'self'; object-src 'none'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,43 +21,33 @@
 </head>
 <body>
 
+<!-- ramo de folhas do fundo do login, desenhado uma vez e usado duas -->
+<svg width="0" height="0" class="defs" aria-hidden="true">
+  <symbol id="ramo" viewBox="0 0 200 200">
+    <path class="caule" pathLength="1" d="M14 192C48 158 74 128 98 96S150 36 188 10"/>
+    <path class="folha" pathLength="1" d="M40 166c-20-2-34-14-36-28 16 0 30 12 36 28z"/>
+    <path class="folha" pathLength="1" d="M50 156c2-20 14-34 28-38 1 16-10 30-28 38z"/>
+    <path class="folha" pathLength="1" d="M74 128c-20-4-32-18-32-32 16 2 28 16 32 32z"/>
+    <path class="folha" pathLength="1" d="M84 118c4-20 18-32 32-34-1 16-14 28-32 34z"/>
+    <path class="folha" pathLength="1" d="M108 84c-18-8-26-22-24-36 14 4 24 18 24 36z"/>
+    <path class="folha" pathLength="1" d="M118 76c8-18 22-26 36-26-4 14-18 24-36 26z"/>
+    <path class="folha" pathLength="1" d="M148 44c-12-12-16-26-10-38 12 8 16 22 10 38z"/>
+    <path class="folha" pathLength="1" d="M158 36c10-12 24-16 34-12-6 12-20 16-34 12z"/>
+    <circle class="baga" cx="30" cy="132" r="3.2"/>
+    <circle class="baga" cx="38" cy="124" r="2.4"/>
+    <circle class="baga" cx="132" cy="96" r="3"/>
+    <circle class="baga" cx="140" cy="90" r="2.2"/>
+  </symbol>
+</svg>
+
 <!-- ===================== LOGIN ===================== -->
-<!-- o app.js alterna display entre flex e none, por isso o inline fica aqui -->
-<div class="login-screen" id="loginScreen" style="display:flex">
+<div class="login-screen" id="loginScreen">
   <!-- enfeite do fundo: manchas de cor, folhas que se desenham, polaroids e a faixa -->
   <div class="deco" aria-hidden="true">
     <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
     <span class="grain"></span>
-    <svg class="ramo ramo-1" viewBox="0 0 200 200">
-      <path class="caule" pathLength="1" d="M14 192C48 158 74 128 98 96S150 36 188 10"/>
-      <path class="folha" pathLength="1" style="--d:.5s"  d="M40 166c-20-2-34-14-36-28 16 0 30 12 36 28z"/>
-      <path class="folha" pathLength="1" style="--d:.65s" d="M50 156c2-20 14-34 28-38 1 16-10 30-28 38z"/>
-      <path class="folha" pathLength="1" style="--d:.8s"  d="M74 128c-20-4-32-18-32-32 16 2 28 16 32 32z"/>
-      <path class="folha" pathLength="1" style="--d:.95s" d="M84 118c4-20 18-32 32-34-1 16-14 28-32 34z"/>
-      <path class="folha" pathLength="1" style="--d:1.1s" d="M108 84c-18-8-26-22-24-36 14 4 24 18 24 36z"/>
-      <path class="folha" pathLength="1" style="--d:1.25s" d="M118 76c8-18 22-26 36-26-4 14-18 24-36 26z"/>
-      <path class="folha" pathLength="1" style="--d:1.4s" d="M148 44c-12-12-16-26-10-38 12 8 16 22 10 38z"/>
-      <path class="folha" pathLength="1" style="--d:1.55s" d="M158 36c10-12 24-16 34-12-6 12-20 16-34 12z"/>
-      <circle class="baga" cx="30" cy="132" r="3.2" style="--d:1.8s"/>
-      <circle class="baga" cx="38" cy="124" r="2.4" style="--d:1.9s"/>
-      <circle class="baga" cx="132" cy="96" r="3" style="--d:2s"/>
-      <circle class="baga" cx="140" cy="90" r="2.2" style="--d:2.1s"/>
-    </svg>
-    <svg class="ramo ramo-2" viewBox="0 0 200 200">
-      <path class="caule" pathLength="1" d="M14 192C48 158 74 128 98 96S150 36 188 10"/>
-      <path class="folha" pathLength="1" style="--d:.5s"  d="M40 166c-20-2-34-14-36-28 16 0 30 12 36 28z"/>
-      <path class="folha" pathLength="1" style="--d:.65s" d="M50 156c2-20 14-34 28-38 1 16-10 30-28 38z"/>
-      <path class="folha" pathLength="1" style="--d:.8s"  d="M74 128c-20-4-32-18-32-32 16 2 28 16 32 32z"/>
-      <path class="folha" pathLength="1" style="--d:.95s" d="M84 118c4-20 18-32 32-34-1 16-14 28-32 34z"/>
-      <path class="folha" pathLength="1" style="--d:1.1s" d="M108 84c-18-8-26-22-24-36 14 4 24 18 24 36z"/>
-      <path class="folha" pathLength="1" style="--d:1.25s" d="M118 76c8-18 22-26 36-26-4 14-18 24-36 26z"/>
-      <path class="folha" pathLength="1" style="--d:1.4s" d="M148 44c-12-12-16-26-10-38 12 8 16 22 10 38z"/>
-      <path class="folha" pathLength="1" style="--d:1.55s" d="M158 36c10-12 24-16 34-12-6 12-20 16-34 12z"/>
-      <circle class="baga" cx="30" cy="132" r="3.2" style="--d:1.8s"/>
-      <circle class="baga" cx="38" cy="124" r="2.4" style="--d:1.9s"/>
-      <circle class="baga" cx="132" cy="96" r="3" style="--d:2s"/>
-      <circle class="baga" cx="140" cy="90" r="2.2" style="--d:2.1s"/>
-    </svg>
+    <svg class="ramo ramo-1" viewBox="0 0 200 200"><use href="#ramo"/></svg>
+    <svg class="ramo ramo-2" viewBox="0 0 200 200"><use href="#ramo"/></svg>
     <figure class="pola pola-1"><i class="f1"></i><b>floral</b></figure>
     <figure class="pola pola-2"><i class="f2"></i><b>jeans</b></figure>
     <figure class="pola pola-3"><i class="f3"></i><b>listras</b></figure>
@@ -71,29 +66,29 @@
     </div>
 
     <!-- form de verdade: o gerenciador de senhas do celular precisa dele -->
-    <form class="login-card" id="loginForm" onsubmit="fazerLogin(); return false;">
+    <form class="login-card" id="loginForm" novalidate>
       <div class="field">
         <label for="loginEmail">Email</label>
         <input type="email" id="loginEmail" placeholder="voce@email.com"
-               autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false"
-               onkeydown="if(event.key==='Enter') document.getElementById('loginSenha').focus()">
+               autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" enterkeyhint="next">
       </div>
       <div class="field">
         <label for="loginSenha">Senha</label>
         <input type="password" id="loginSenha" placeholder="Sua senha"
-               autocomplete="current-password"
-               onkeydown="if(event.key==='Enter') fazerLogin()">
+               autocomplete="current-password" enterkeyhint="go">
       </div>
       <div class="login-err" id="loginErr" role="alert"></div>
+      <div class="login-ok" id="loginMsg" role="status"></div>
       <button id="btnLogin" class="btn btn-primary" type="submit">Entrar</button>
+      <button id="btnEsqueci" class="btn-link" type="button" data-action="esqueci-senha">Esqueci minha senha</button>
     </form>
 
   </div>
 </div>
 
 <!-- ===================== APP ===================== -->
-<div id="appWrapper" style="display:none">
-  <div class="app">
+<div id="appWrapper" hidden>
+  <div class="app" id="appMain">
 
     <!-- Cabeçalho -->
     <header class="header">
@@ -102,26 +97,27 @@
       </div>
       <div class="header-text">
         <h1>Luxus Brechó</h1>
-        <p id="modelLabel">Anúncio pronto, com link de reserva</p>
+        <p>Anúncio pronto pro grupo</p>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" onclick="toggleTheme()" type="button" aria-label="Alternar tema claro e escuro">
-          <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <button class="icon-btn" id="btnTheme" data-action="tema" type="button" aria-label="Mudar para o tema escuro">
+          <svg id="iconeLua" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg id="iconeSol" hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
-        <button class="icon-btn" onclick="toggleConfig()" type="button" aria-label="Configurações" aria-expanded="false" id="btnConfig">
+        <button class="icon-btn" id="btnConfig" data-action="config" type="button" aria-label="Configurações" aria-expanded="false" aria-controls="cfgCard">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
         </button>
       </div>
-      <div id="loggedEmail" class="header-user" aria-label="Email logado"></div>
+      <div id="loggedEmail" class="header-user" aria-label="Conta conectada"></div>
     </header>
 
     <!-- Configurações -->
-    <div class="card" id="cfgCard" style="display:none" role="region" aria-label="Configurações">
+    <div class="card" id="cfgCard" hidden role="region" aria-label="Configurações">
       <div class="card-header"><div class="dot" aria-hidden="true"></div><span class="card-title">Configurações</span></div>
 
       <div class="field">
         <label for="telefone">Telefone do brechó <span class="req" aria-label="obrigatório">*</span></label>
-        <input type="tel" id="telefone" placeholder="5511999998888" inputmode="numeric" autocomplete="tel">
+        <input type="tel" id="telefone" placeholder="5511999998888" inputmode="numeric" autocomplete="off" maxlength="20">
         <div class="info-badge badge-sec">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <p>Número que recebe as clientes interessadas, com DDI e DDD. <strong>Normalmente é o único campo que muda.</strong></p>
@@ -131,25 +127,24 @@
       <div class="grid-2">
         <div class="field">
           <label for="brecoNome">Nome do brechó</label>
-          <input type="text" id="brecoNome" placeholder="Luxus Brechó" autocomplete="off">
+          <input type="text" id="brecoNome" placeholder="Luxus Brechó" autocomplete="off" maxlength="60">
         </div>
         <div class="field">
           <label for="seuNome">Seu nome</label>
-          <input type="text" id="seuNome" placeholder="Quem está vendendo" autocomplete="off">
+          <input type="text" id="seuNome" placeholder="Quem está vendendo" autocomplete="off" maxlength="40">
         </div>
       </div>
 
-
       <div class="field">
         <label for="meuTel">Seu WhatsApp, para os alertas de venda</label>
-        <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric" autocomplete="tel">
+        <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric" autocomplete="tel" maxlength="20">
       </div>
 
-      <button class="btn btn-primary" onclick="salvarConfig()" type="button">
+      <button class="btn btn-primary" data-action="salvar-config" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         Salvar configurações
       </button>
-      <button class="btn btn-ghost" onclick="fazerLogout()" type="button">
+      <button class="btn btn-ghost" data-action="sair" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Sair da conta
       </button>
@@ -158,11 +153,11 @@
     <!-- Abas -->
     <nav class="nav" role="tablist" aria-label="Seções do app">
       <span class="nav-ind" aria-hidden="true"></span>
-      <button class="nav-btn active" id="tabAnuncio" onclick="switchTab('anuncio')" type="button" role="tab" aria-selected="true" aria-controls="pageAnuncio">
+      <button class="nav-btn active" id="tabAnuncio" data-action="aba" data-aba="anuncio" type="button" role="tab" aria-selected="true" aria-controls="pageAnuncio">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         Anunciar
       </button>
-      <button class="nav-btn" id="tabHistorico" onclick="switchTab('historico')" type="button" role="tab" aria-selected="false" aria-controls="pageHistorico">
+      <button class="nav-btn" id="tabHistorico" data-action="aba" data-aba="historico" type="button" role="tab" aria-selected="false" aria-controls="pageHistorico">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
         Histórico
         <span class="badge" id="pendBadge" aria-live="polite" aria-label="produtos pendentes">0</span>
@@ -179,21 +174,21 @@
           <div class="photo-btns" id="photoBtns">
             <div class="photo-btn">
               <input type="file" id="fotoCamera" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment"
-                     onchange="handlePhoto(event)" aria-label="Tirar foto com a câmera">
+                     aria-label="Tirar foto com a câmera">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               <span>Câmera</span>
             </div>
             <div class="photo-btn">
               <input type="file" id="fotoGaleria" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                     onchange="handlePhoto(event)" aria-label="Escolher foto da galeria">
+                     aria-label="Escolher foto da galeria">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               <span>Galeria</span>
             </div>
           </div>
           <!-- com foto: prévia e botão de remover -->
-          <div class="upload-zone has-img" id="previewZone" style="display:none">
-            <img id="preview" alt="Prévia do produto">
-            <button class="rm-photo" onclick="removePhoto()" type="button" aria-label="Remover foto">
+          <div class="upload-zone has-img" id="previewZone" hidden>
+            <img id="preview" alt="Prévia do produto" hidden>
+            <button class="rm-photo" data-action="remover-foto" type="button" aria-label="Remover foto">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -203,43 +198,43 @@
           <div class="field">
             <label for="preco">Preço <span class="req" aria-label="obrigatório">*</span></label>
             <div class="input-pre"><span class="pre" aria-hidden="true">R$</span>
-              <input type="number" id="preco" placeholder="0,00" step="0.01" min="0"
+              <input type="number" id="preco" placeholder="0,00" step="0.01" min="0" max="99999"
                      inputmode="decimal" enterkeyhint="next" required aria-required="true">
             </div>
           </div>
           <div class="field">
             <label for="tamanho">Tamanho</label>
-            <input type="text" id="tamanho" placeholder="P, M, G, 38" autocomplete="off" enterkeyhint="next">
+            <input type="text" id="tamanho" placeholder="P, M, G, 38" autocomplete="off" enterkeyhint="next" maxlength="20">
           </div>
         </div>
 
         <p class="sec-label" id="catLabel">Categoria</p>
         <div class="tags" id="catTags" role="group" aria-labelledby="catLabel">
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👗 Vestido</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👕 Camisa</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👖 Calça</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👟 Calçado</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">👜 Bolsa</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">🧥 Casaco</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">💍 Acessório</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">🩱 Blusa</div>
-          <div class="tag" onclick="toggleTag(this)" role="checkbox" aria-checked="false" tabindex="0">🩴 Short</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">👗 Vestido</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">👕 Camisa</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">👖 Calça</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">👟 Calçado</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">👜 Bolsa</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">🧥 Casaco</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">💍 Acessório</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">🩱 Blusa</div>
+          <div class="tag" role="checkbox" aria-checked="false" tabindex="0">🩴 Short</div>
         </div>
 
         <p class="sec-label" id="estLabel">Estado</p>
         <div class="tags" id="stateTags" role="radiogroup" aria-labelledby="estLabel">
-          <div class="tag active" onclick="toggleSingle(this,'stateTags')" role="radio" aria-checked="true"  tabindex="0">✨ Ótimo</div>
-          <div class="tag"        onclick="toggleSingle(this,'stateTags')" role="radio" aria-checked="false" tabindex="0">👌 Bom</div>
-          <div class="tag"        onclick="toggleSingle(this,'stateTags')" role="radio" aria-checked="false" tabindex="0">🏷️ Novo c/ etiqueta</div>
+          <div class="tag active" role="radio" aria-checked="true" tabindex="0">✨ Ótimo</div>
+          <div class="tag" role="radio" aria-checked="false" tabindex="-1">👌 Bom</div>
+          <div class="tag" role="radio" aria-checked="false" tabindex="-1">🏷️ Novo c/ etiqueta</div>
         </div>
 
         <p class="sec-label"><label for="obs">Detalhes extras, se tiver</label></p>
-        <textarea id="obs" placeholder="Camisa de time, bordado floral, vintage anos 90" enterkeyhint="done"></textarea>
+        <textarea id="obs" placeholder="Camisa de time, bordado floral, vintage anos 90" enterkeyhint="done" maxlength="200"></textarea>
       </div>
 
       <div class="status-bar err" id="errBar" role="alert" aria-live="assertive"></div>
 
-      <button class="btn btn-primary" id="btnGerar" onclick="gerarPost()" type="button">
+      <button class="btn btn-primary" id="btnGerar" data-action="gerar" type="button">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         Gerar anúncio
       </button>
@@ -248,7 +243,7 @@
       <div class="result-card" id="resultCard" role="region" aria-label="Anúncio gerado">
         <div class="result-top avail">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Anúncio pronto e salvo no histórico</span>
+          <span id="resultStatus" role="status">Anúncio pronto e salvo no histórico</span>
         </div>
         <div class="result-body">
           <div class="link-prev">
@@ -257,16 +252,16 @@
           </div>
           <div class="msg-box" id="msgResult" aria-label="Texto do anúncio" tabindex="0"></div>
           <p class="hint">Segure o texto para selecionar, ou use os botões</p>
-          <button class="btn btn-primary" onclick="copiar()" type="button">
+          <button class="btn btn-primary" data-action="copiar" type="button">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             Copiar mensagem
           </button>
-          <button class="btn btn-ghost" id="btnShareWpp" onclick="compartilharWpp()" type="button">
+          <button class="btn btn-ghost" id="btnShareWpp" data-action="compartilhar" type="button">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            Compartilhar com foto no WhatsApp
+            <span id="txtShareWpp">Compartilhar no WhatsApp</span>
           </button>
           <div class="divider"></div>
-          <button class="btn btn-ghost" onclick="novoAnuncio()" type="button">
+          <button class="btn btn-ghost" data-action="novo" type="button">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
             Anunciar outra peça
           </button>
@@ -275,13 +270,13 @@
     </div>
 
     <!-- ===== Aba histórico ===== -->
-    <div id="pageHistorico" style="display:none" role="tabpanel" aria-labelledby="tabHistorico">
+    <div id="pageHistorico" hidden role="tabpanel" aria-labelledby="tabHistorico">
       <div class="grid-2">
-        <button class="btn btn-purple" onclick="abrirModalVendaFisica()" type="button">
+        <button class="btn btn-purple" data-action="venda-loja" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Venda na loja
         </button>
-        <button class="btn btn-primary" onclick="fecharCaixaHoje()" type="button">
+        <button class="btn btn-primary" data-action="fechar-caixa" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
           Fechar caixa
         </button>
@@ -292,41 +287,41 @@
         <div class="stat-box reserv"><div class="stat-val" id="cntRes">0</div><div class="stat-lbl">Reservados</div></div>
         <div class="stat-box sold-s"><div class="stat-val" id="cntVend">0</div><div class="stat-lbl">Vendidos hoje</div></div>
       </div>
-      <input type="search" id="histSearch" class="hist-search" placeholder="🔖 Buscar por código, categoria ou loja" oninput="buscarHist(this.value)" autocomplete="off" enterkeyhint="search" aria-label="Buscar no histórico">
+      <input type="search" id="histSearch" class="hist-search" placeholder="🔖 Buscar por código, categoria ou loja" autocomplete="off" enterkeyhint="search" aria-label="Buscar no histórico" maxlength="60">
       <div id="histList" aria-live="polite"></div>
     </div>
 
   </div><!-- /app -->
 
   <!-- Modal de venda na loja -->
-  <div class="modal-overlay" id="modalVendaFisica" onclick="fecharModalVF(event)"
+  <div class="modal-overlay" id="modalVendaFisica"
        role="dialog" aria-modal="true" aria-labelledby="modalVFTitle">
-    <div class="modal">
+    <form class="modal" id="formVendaFisica" novalidate>
       <div class="modal-title" id="modalVFTitle">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         Registrar venda na loja
       </div>
       <div class="field">
-        <label for="vfDesc">O que foi vendido</label>
-        <input type="text" id="vfDesc" placeholder="Vestido floral P, bolsa de couro bege" autocomplete="off">
+        <label for="vfDesc">O que foi vendido <span class="req" aria-label="obrigatório">*</span></label>
+        <input type="text" id="vfDesc" placeholder="Vestido floral P, bolsa de couro bege" autocomplete="off" maxlength="120" enterkeyhint="next" aria-required="true">
       </div>
       <div class="field">
         <label for="vfPreco">Valor <span class="req" aria-label="obrigatório">*</span></label>
         <div class="input-pre"><span class="pre" aria-hidden="true">R$</span>
-          <input type="number" id="vfPreco" placeholder="0,00" step="0.01" min="0"
-                 inputmode="decimal" aria-required="true">
+          <input type="number" id="vfPreco" placeholder="0,00" step="0.01" min="0" max="99999"
+                 inputmode="decimal" aria-required="true" enterkeyhint="done">
         </div>
       </div>
       <div class="info-badge badge-phys">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <p>Entra no fechamento do caixa de hoje junto com as vendas online.</p>
       </div>
-      <button class="btn btn-purple" onclick="registrarVendaFisica()" type="button">
+      <button class="btn btn-purple" type="submit">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         Registrar venda
       </button>
-      <button class="btn btn-ghost" onclick="fecharModalVF()" type="button">Cancelar</button>
-    </div>
+      <button class="btn btn-ghost" data-action="fechar-modal" type="button">Cancelar</button>
+    </form>
   </div>
 
 </div><!-- /appWrapper -->
