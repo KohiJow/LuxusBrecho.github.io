@@ -284,6 +284,22 @@ def fluxo_principal(b, url, saida):
     pg.wait_for_timeout(300)
     checa(sem_rolagem(pg), "app sem rolagem horizontal")
 
+    # teclado: o anel de foco aparece, e as setas trocam de aba
+    pg.keyboard.press("Shift+Tab")
+    pg.wait_for_timeout(200)
+    checa(pg.evaluate("document.activeElement.dataset.action") == "fechar-caixa"
+          and pg.evaluate("document.activeElement.matches(':focus-visible') && getComputedStyle(document.activeElement).outlineStyle === 'solid'"),
+          "tab leva o foco pro botao e o anel aparece")
+    foto(pg, saida / "11-foco-teclado.png")
+    pg.focus("#tabHistorico")
+    pg.keyboard.press("ArrowLeft")
+    pg.wait_for_timeout(300)
+    checa(pg.is_visible("#pageAnuncio") and pg.evaluate("document.activeElement.id") == "tabAnuncio", "seta esquerda vai pra aba anunciar")
+    checa(pg.get_attribute("#tabHistorico", "tabindex") == "-1" and pg.get_attribute("#tabAnuncio", "tabindex") == "0", "so a aba ativa entra no tab")
+    pg.keyboard.press("ArrowRight")
+    pg.wait_for_timeout(300)
+    checa(pg.is_visible("#pageHistorico") and pg.evaluate("document.activeElement.id") == "tabHistorico", "seta direita volta pro historico")
+
     # status pelos botoes criados no historico (delegacao de evento)
     pg.click("#histList [data-action='status'][data-para='reserved']")
     pg.wait_for_timeout(400)

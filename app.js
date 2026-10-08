@@ -301,6 +301,9 @@
     $('tabHistorico').classList.toggle('active', !anuncio);
     $('tabAnuncio').setAttribute('aria-selected', anuncio ? 'true' : 'false');
     $('tabHistorico').setAttribute('aria-selected', anuncio ? 'false' : 'true');
+    // só a aba ativa entra no Tab; a outra se alcança pelas setas
+    $('tabAnuncio').tabIndex = anuncio ? 0 : -1;
+    $('tabHistorico').tabIndex = anuncio ? -1 : 0;
     if (!anuncio) renderizarHistorico();
   }
 
@@ -670,6 +673,7 @@
     const pendentes = produtos.filter(p => p.status !== VENDIDO).length;
     const el = $('pendBadge');
     el.textContent = pendentes;
+    el.setAttribute('aria-label', pendentes + (pendentes === 1 ? ' peça pendente' : ' peças pendentes'));
     el.classList.toggle('on', pendentes > 0);
   }
 
@@ -953,6 +957,15 @@
     // Enter no email pula pra senha em vez de enviar o formulário pela metade
     $('loginEmail').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); $('loginSenha').focus(); }
+    });
+
+    // nas abas, seta esquerda ou direita troca de aba e leva o foco junto
+    document.querySelector('.nav').addEventListener('keydown', e => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const aba = abaAtual === 'anuncio' ? 'historico' : 'anuncio';
+      mudarAba(aba);
+      $(aba === 'anuncio' ? 'tabAnuncio' : 'tabHistorico').focus();
     });
 
     $('fotoCamera').addEventListener('change', escolherFoto);
