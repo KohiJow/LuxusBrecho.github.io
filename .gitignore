@@ -1,0 +1,6 @@
+# saida dos testes locais
+tests/saida/
+__pycache__/
+.venv/
+venv/
+node_modules/
