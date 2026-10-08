@@ -2,22 +2,22 @@
 
 Ferramenta web para gerar anúncios de produtos de brechó com IA (Google Gemini), com link de rastreamento por vendedor, controle de status dos produtos e alerta de venda via WhatsApp.
 
-> Feito para rodar direto no navegador — sem backend, sem instalação.
+> Feito para rodar direto no navegador, sem backend, sem instalação.
 
 ---
 
 ## ✨ Funcionalidades
 
-- **Geração de texto com IA** — descreve o produto de forma animada e criativa usando o Google Gemini
-- **Suporte a foto** — envia a imagem para a IA analisar cor, estilo e detalhes
-- **Link rastreável por vendedor** — cada anúncio gera um link `wa.me` com o nome do vendedor, permitindo rastrear de onde veio o interesse
-- **Controle de status** — cada produto tem status independente: Disponível → Reservado → Vendido
-- **Cancelamento flexível** — reserva ou venda podem ser canceladas a qualquer momento, voltando o produto para Disponível
-- **Alerta de venda no WhatsApp** — ao confirmar uma venda, abre automaticamente uma mensagem no WhatsApp do administrador com resumo da venda para cobrança de comissão
-- **Histórico persistente** — todos os produtos anunciados ficam salvos no `localStorage`, mesmo após fechar o navegador
-- **Fallback automático de modelos** — se um modelo da API atingir o limite, tenta o próximo automaticamente
+- **Geração de texto com IA**: descreve o produto de forma animada e criativa usando o Google Gemini
+- **Suporte a foto**: envia a imagem para a IA analisar cor, estilo e detalhes
+- **Link rastreável por vendedor**: cada anúncio gera um link `wa.me` com o nome do vendedor, permitindo rastrear de onde veio o interesse
+- **Controle de status**: cada produto tem status independente: Disponível → Reservado → Vendido
+- **Cancelamento flexível**: reserva ou venda podem ser canceladas a qualquer momento, voltando o produto para Disponível
+- **Alerta de venda no WhatsApp**: ao confirmar uma venda, abre automaticamente uma mensagem no WhatsApp do administrador com resumo da venda para cobrança de comissão
+- **Histórico persistente**: todos os produtos anunciados ficam salvos no `localStorage`, mesmo após fechar o navegador
+- **Fallback automático de modelos**: se um modelo da API atingir o limite, tenta o próximo automaticamente
 - **Tema claro/escuro**
-- **100% offline-ready** — só precisa de internet para chamar a API do Gemini
+- **100% offline-ready**: só precisa de internet para chamar a API do Gemini
 
 ---
 
@@ -35,7 +35,7 @@ Acesse o link do GitHub Pages ou abra o arquivo `index.html` diretamente no nave
 | Seu nome | Aparece no link rastreável para identificar o vendedor |
 | Seu WhatsApp | Recebe o resumo quando uma venda é confirmada |
 
-> A chave da API fica **apenas na memória da sessão** — nunca é salva ou enviada para nenhum servidor além da API do Google.
+> A chave da API fica **apenas na memória da sessão**, nunca é salva ou enviada para nenhum servidor além da API do Google.
 
 ### 3. Anunciar um produto
 1. Adicione uma foto (opcional, mas melhora muito o texto gerado)
@@ -54,10 +54,10 @@ Acesse o link do GitHub Pages ou abra o arquivo `index.html` diretamente no nave
 
 A ferramenta tenta os modelos nesta ordem, com retry automático em caso de limite:
 
-1. `gemini-2.5-flash` — principal
-2. `gemini-2.5-flash-lite` — mais leve
-3. `gemini-2.0-flash-lite` — fallback
-4. `gemini-1.5-flash-latest` — último recurso
+1. `gemini-2.5-flash` (principal)
+2. `gemini-2.5-flash-lite` (mais leve)
+3. `gemini-2.0-flash-lite` (fallback)
+4. `gemini-1.5-flash-latest` (último recurso)
 
 > O plano gratuito da API do Google permite ~10–15 requisições por minuto. Suficiente para uso normal.
 
@@ -94,4 +94,4 @@ Não há dependências externas além da fonte do Google Fonts (carregada via CD
 
 ## 📄 Licença
 
-MIT — use, modifique e distribua livremente.
+MIT: use, modifique e distribua livremente.
