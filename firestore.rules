@@ -1,0 +1,136 @@
+rules_version = '2';
+
+// Regras do Firestore do app Luxus Brechó.
+//
+// Princípio: cada vendedora só enxerga e só altera os próprios dados, e o banco
+// só aceita documentos com o formato exato que o app grava (app.js, seções 5,
+// 10, 11 e 12). Campo a mais, tipo errado, texto longo demais ou dono diferente
+// do uid logado: recusado. Os limites de tamanho acompanham os do app (LIMITE
+// em app.js e os maxlength do index.html); mudou lá, muda aqui.
+//
+// Publicação: Console do Firebase > Firestore > Regras, colar e publicar, ou
+// `firebase deploy --only firestore:rules` com o firebase.json deste repositório.
+// Teste local sem conta: `firebase emulators:exec --only firestore --project demo-luxus "python3 tests/regras.py"`.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logada() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    // email do token de quem está logada; conta sem email cai em ''
+    function emailDaConta() { return request.auth.token.get('email', ''); }
+
+    function texto(v, max) { return v is string && v.size() <= max; }
+    // As regras não têm laço, então a lista é conferida item a item (o app
+    // nunca grava mais que 9 categorias, e a venda na loja grava uma descrição).
+    function itemTexto(l, i, max) { return l.size() <= i || (l[i] is string && l[i].size() <= max); }
+    function listaDeTextos(l, maxItens, maxItem) {
+      return l is list && l.size() <= maxItens
+        && itemTexto(l, 0, maxItem) && itemTexto(l, 1, maxItem) && itemTexto(l, 2, maxItem)
+        && itemTexto(l, 3, maxItem) && itemTexto(l, 4, maxItem) && itemTexto(l, 5, maxItem)
+        && itemTexto(l, 6, maxItem) && itemTexto(l, 7, maxItem) && itemTexto(l, 8, maxItem)
+        && itemTexto(l, 9, maxItem);
+    }
+    // Date.now() do celular: inteiro, e no máximo um dia à frente do servidor
+    function instante(v) { return v is int && v > 0 && v < request.time.toMillis() + 86400000; }
+    function dinheiro(v) { return v is number && v >= 0 && v <= 99999; }
+    function statusValido(s) { return s in ['available', 'reserved', 'sold']; }
+    function tipoValido(t) { return t in ['online', 'physical']; }
+    // a foto é o JPEG reduzido pelo app (640px, base64), ou nada
+    function foto(v) {
+      return v == null
+        || (v is string && v.size() <= 700000 && v.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'));
+    }
+    // vendido tem a hora da venda; qualquer outro status não tem
+    function soldAtCoerente(d) {
+      return (d.soldAt == null || instante(d.soldAt)) && ((d.status == 'sold') == (d.soldAt is int));
+    }
+
+    // Produto: anúncio online (com prodCod) ou venda na loja (sem prodCod).
+    function produtoValido(d) {
+      return d.keys().hasOnly(['ts', 'emoji', 'cats', 'estado', 'estLabel', 'tam', 'obs', 'precoNum', 'precoStr',
+                               'link', 'msg', 'foto64', 'prodCod', 'brecoNome', 'brecoOwner', 'sellerEmail',
+                               'status', 'soldAt', 'cashoutSent', 'type'])
+        && d.keys().hasAll(['ts', 'emoji', 'cats', 'estado', 'estLabel', 'tam', 'obs', 'precoNum', 'precoStr',
+                            'link', 'msg', 'foto64', 'brecoNome', 'brecoOwner', 'sellerEmail',
+                            'status', 'soldAt', 'cashoutSent', 'type'])
+        && instante(d.ts)
+        && texto(d.emoji, 16)
+        && listaDeTextos(d.cats, 10, 120)
+        && listaDeTextos(d.estado, 3, 40)
+        && texto(d.estLabel, 40)
+        && texto(d.tam, 20)
+        && texto(d.obs, 200)
+        && dinheiro(d.precoNum)
+        && d.precoStr is string && d.precoStr.matches('[0-9]{1,5},[0-9]{2}')
+        && d.link is string && (d.link == '' || (d.link.size() <= 600 && d.link.matches('https://wa[.]me/[0-9]{1,15}[?]text=.*')))
+        && texto(d.msg, 1500)
+        && foto(d.foto64)
+        && (!('prodCod' in d) || (d.prodCod is string && d.prodCod.matches('[A-Z0-9]{6}')))
+        && texto(d.brecoNome, 60)
+        && d.brecoOwner == uid()
+        && d.sellerEmail == emailDaConta()
+        && statusValido(d.status)
+        && soldAtCoerente(d)
+        && d.cashoutSent is bool
+        && tipoValido(d.type);
+    }
+
+    // Evento de mudança de status: quem mudou (by) é quem está logada.
+    function eventoValido(d) {
+      return d.keys().hasOnly(['productId', 'type', 'from', 'to', 'by', 'byEmail', 'at'])
+        && d.keys().hasAll(['productId', 'type', 'from', 'to', 'by', 'byEmail', 'at'])
+        && texto(d.productId, 40) && d.productId.size() > 0
+        && d.type == 'status_changed'
+        && statusValido(d.from) && statusValido(d.to) && d.from != d.to
+        && d.by == uid()
+        && d.byEmail == emailDaConta()
+        && instante(d.at);
+    }
+
+    // Venda (online ou na loja): a vendedora (sellerId) é quem está logada.
+    function vendaValida(d) {
+      return d.keys().hasOnly(['productId', 'sellerId', 'sellerEmail', 'valor', 'brecoNome', 'soldAt', 'cashoutSent', 'type'])
+        && d.keys().hasAll(['productId', 'sellerId', 'sellerEmail', 'valor', 'brecoNome', 'soldAt', 'cashoutSent', 'type'])
+        && texto(d.productId, 40) && d.productId.size() > 0
+        && d.sellerId == uid()
+        && d.sellerEmail == emailDaConta()
+        && dinheiro(d.valor)
+        && texto(d.brecoNome, 60)
+        && instante(d.soldAt)
+        && d.cashoutSent == false
+        && tipoValido(d.type);
+    }
+
+    // Produtos: o dono fica em brecoOwner. A consulta do app filtra por ele,
+    // então a leitura em lista casa com a regra. Só três campos mudam depois
+    // de criado (status, soldAt, cashoutSent); o resto é imutável. Apagar, só
+    // venda na loja, que é o único "remover" que o app oferece.
+    match /products/{id} {
+      allow read: if logada() && resource.data.brecoOwner == uid();
+      allow create: if logada() && produtoValido(request.resource.data) && request.resource.data.cashoutSent == false;
+      allow update: if logada() && resource.data.brecoOwner == uid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'soldAt', 'cashoutSent'])
+        && statusValido(request.resource.data.status)
+        && soldAtCoerente(request.resource.data)
+        && request.resource.data.cashoutSent is bool;
+      allow delete: if logada() && resource.data.brecoOwner == uid() && resource.data.type == 'physical';
+    }
+
+    // Eventos e vendas são registro: nascem e ficam. Ninguém edita nem apaga.
+    match /events/{id} {
+      allow read: if logada() && resource.data.by == uid();
+      allow create: if logada() && eventoValido(request.resource.data);
+    }
+
+    match /sales/{id} {
+      allow read: if logada() && resource.data.sellerId == uid();
+      allow create: if logada() && vendaValida(request.resource.data);
+    }
+
+    // Qualquer outra coleção ou documento: ninguém lê nem escreve.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
