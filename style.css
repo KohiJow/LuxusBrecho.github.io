@@ -1142,8 +1142,12 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   width: 72px;
   height: 86px;
   padding: 5px 5px 14px;
-  display: grid;
-  place-items: center;
+  /* flex (e nao grid): a foto em retrato precisa que o 100% de altura
+     resolva contra a moldura, senao ela estoura por baixo e cobre o status */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   background: var(--paper);
   border-radius: 3px;
   box-shadow: var(--shadow-pola);
@@ -1151,7 +1155,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   transition: transform .4s var(--ease-spring);
 }
 #histList .hist-item:nth-child(even) .hist-thumb { transform: rotate(2.5deg); }
-.hist-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 1px; }
+.hist-thumb img { display: block; width: 100%; height: 100%; max-height: 100%; object-fit: cover; border-radius: 1px; }
 .hist-thumb-emoji { font-size: 1.4rem; }
 .hist-saving { font-size: .82rem; font-weight: 600; color: var(--text-faint); }
 .hist-info { flex: 1; min-width: 0; }
