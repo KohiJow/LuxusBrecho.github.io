@@ -77,6 +77,8 @@ function carregarConfigSalva() {
     if (cfg.brecoNome) document.getElementById('brecoNome').value = cfg.brecoNome;
     if (cfg.seuNome)   document.getElementById('seuNome').value   = cfg.seuNome;
     if (cfg.meuTel)    document.getElementById('meuTel').value    = cfg.meuTel;
+    const cbIA = document.getElementById('usarIA');
+    if (cbIA) cbIA.checked = !!cfg.usarIA;
   } catch (e) {}
 }
 
@@ -85,7 +87,8 @@ function salvarConfig() {
     telefone:  document.getElementById('telefone').value.trim(),
     brecoNome: document.getElementById('brecoNome').value.trim(),
     seuNome:   document.getElementById('seuNome').value.trim(),
-    meuTel:    document.getElementById('meuTel').value.trim()
+    meuTel:    document.getElementById('meuTel').value.trim(),
+    usarIA:    !!(document.getElementById('usarIA') || {}).checked
   };
   try {
     localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
@@ -444,7 +447,7 @@ window.removerVendaFisica = removerVendaFisica;
 
 async function callIA(dados, imgB64) {
   const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), 130000); // 130s — qwen2.5:3b em ARM é lento
+  const tid  = setTimeout(() => ctrl.abort(), 45000); // 45s: acima disso quem está na loja desiste
 
   // mostra aviso após 8s sem cancelar a request
   const lentoMsg = setTimeout(() => showRetry('⏳ A IA está pensando… isso leva ~30–60s.'), 8000);
@@ -498,10 +501,66 @@ function buildLink(tel, nome, cats, precoStr, tam, prodCod) {
 }
 
 function descLocal(cats, estado, tam, obs) {
-  const cat = cats.length   ? cats[0].replace(/^\S+\s/, '')   : 'peça';
-  const est = estado.length ? estado[0].replace(/^\S+\s/, '') : 'bom estado';
-  return cat + (tam ? ' (' + tam + ')' : '') + ' em ' + est + '.' + (obs ? ' ' + obs + '.' : '')
-    + ' Peça selecionada com cuidado e pronta para nova dona. Aproveita antes que voa! 🛍️';
+  const cat = cats.length   ? cats[0].replace(/^\S+\s/, '')   : 'Peça';
+  const est = estado.length ? estado[0].replace(/^\S+\s/, '') : 'Bom';
+  const chave = (cat + est + tam + obs).toLowerCase();
+
+  // Escolha estável: a mesma peça gera sempre o mesmo texto, mas peças
+  // diferentes geram textos diferentes. Evita o grupo receber vinte posts
+  // terminando na mesma frase.
+  let h = 0;
+  for (let i = 0; i < chave.length; i++) h = (h * 31 + chave.charCodeAt(i)) >>> 0;
+  const pega = (lista, desvio) => lista[(h + (desvio || 0)) % lista.length];
+
+  const PORCATEGORIA = {
+    'Vestido':   ['Vestido que resolve o look sozinho', 'Vestido fácil de usar, só jogar e sair',
+                  'Vestido com caimento bonito'],
+    'Camisa':    ['Camisa coringa, combina com tudo', 'Camisa que serve pro trabalho e pro rolê',
+                  'Camisa de tecido gostoso'],
+    'Blusa':     ['Blusa pra usar o ano todo', 'Blusa confortável do jeito que a gente gosta',
+                  'Blusa simples de combinar'],
+    'Calça':     ['Calça com caimento ótimo', 'Calça confortável pro dia inteiro',
+                  'Calça que valoriza qualquer look'],
+    'Short':     ['Short leve, perfeito pro calor', 'Short confortável pro dia a dia',
+                  'Short fácil de combinar'],
+    'Casaco':    ['Casaco quentinho pros dias frios', 'Casaco que fecha o look com estilo',
+                  'Casaco confortável e versátil'],
+    'Calçado':   ['Calçado confortável de verdade', 'Calçado que combina com vários looks',
+                  'Calçado pronto pra andar muito'],
+    'Bolsa':     ['Bolsa que acompanha o dia inteiro', 'Bolsa com espaço pro que importa',
+                  'Bolsa coringa pra qualquer ocasião'],
+    'Acessório': ['Acessório que dá outro ar no look', 'Acessório pra usar sem pensar muito',
+                  'Acessório que faz diferença no detalhe']
+  };
+
+  // Frases sem marca de gênero: a mesma lista serve para bolsa e para casaco.
+  const PORESTADO = {
+    'Novo c/ etiqueta': ['Peça nova, com etiqueta, nunca usada.',
+                         'Nunca saiu do cabide: etiqueta ainda na peça.',
+                         'Chegou e já vai: nova, com etiqueta.'],
+    'Ótimo':            ['Em ótimo estado, sem marcas de uso.',
+                         'Sem defeitos e sem sinal de uso.',
+                         'Praticamente sem sinal de uso.'],
+    'Bom':              ['Em bom estado, com sinais leves de uso que não atrapalham.',
+                         'Tem marcas discretas de uso, nada que incomode.',
+                         'Em bom estado de uso.']
+  };
+
+  const FECHOS = [
+    'Garimpo do dia, e é peça única.',
+    'Só tem essa, quem chamar primeiro leva.',
+    'Peça única: saiu, acabou.',
+    'Separei essa com carinho pro grupo.',
+    'Se gostou, chama que eu seguro pra você.'
+  ];
+
+  const abertura = (PORCATEGORIA[cat] ? pega(PORCATEGORIA[cat]) : cat)
+                 + (tam ? ', tamanho ' + tam : '') + '.';
+  const condicao = (PORESTADO[est] ? pega(PORESTADO[est], 1) : est + '.');
+  const detalhe  = obs ? ' ' + obs.replace(/\s*\.?\s*$/, '') + '.' : '';
+  const fecho    = pega(FECHOS, 2);
+
+  return abertura + ' ' + condicao + detalhe + ' ' + fecho;
 }
 
 /* ════════════════════════════════════════════
@@ -530,14 +589,19 @@ async function gerarPost() {
 
   setLoading(true);
 
-  let desc = '';
-  try {
-    const imgB64 = _foto64 ? _foto64.split(',')[1] : null;  // backend espera base64 puro
-    const r = await callIA({ nome, cats, estado, tam, obs }, imgB64);
-    desc = r ? finalizarDesc(r) : descLocal(cats, estado, tam, obs);
-  } catch (err) {
-    showErr(err.message);
-    desc = descLocal(cats, estado, tam, obs);
+  // O anúncio é montado aqui mesmo, na hora e sem custo. A IA virou um extra
+  // opcional: desligada nem é chamada, e ligada, se falhar, o texto local entra
+  // no lugar sem travar a venda.
+  let desc = descLocal(cats, estado, tam, obs);
+  const querIA = !!(document.getElementById('usarIA') || {}).checked;
+  if (querIA) {
+    try {
+      const imgB64 = _foto64 ? _foto64.split(',')[1] : null;  // backend espera base64 puro
+      const r = await callIA({ nome, cats, estado, tam, obs }, imgB64);
+      if (r) desc = finalizarDesc(r);
+    } catch (err) {
+      showErr(err.message + ' Usei o texto automático.');
+    }
   }
 
   const estLabel = estado.length ? estado[0].replace(/^\S+\s/, '') : '';

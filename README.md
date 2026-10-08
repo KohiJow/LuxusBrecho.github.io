@@ -1,97 +1,78 @@
-# 🛍️ Brechó Post IA
+# Brechó Post
 
-Ferramenta web para gerar anúncios de produtos de brechó com IA (Google Gemini), com link de rastreamento por vendedor, controle de status dos produtos e alerta de venda via WhatsApp.
+Ferramenta web que transforma uma foto de peça em anúncio pronto para o grupo de
+WhatsApp do brechó: texto do produto, preço, link de reserva rastreável por
+vendedora e controle do que já foi vendido.
 
-> Feito para rodar direto no navegador, sem backend, sem instalação.
+Nasceu de um problema real. Anunciar peça por peça num grupo de WhatsApp é
+repetitivo: fotografar, escrever a descrição, montar o preço, mandar. Isso toma
+tempo que podia estar sendo usado para vender.
 
----
+## Como funciona
 
-## ✨ Funcionalidades
+1. A vendedora tira ou escolhe a foto da peça
+2. Marca a categoria, o estado e o tamanho
+3. Informa o preço
+4. O app monta o anúncio e abre o WhatsApp com foto e texto prontos
 
-- **Geração de texto com IA**: descreve o produto de forma animada e criativa usando o Google Gemini
-- **Suporte a foto**: envia a imagem para a IA analisar cor, estilo e detalhes
-- **Link rastreável por vendedor**: cada anúncio gera um link `wa.me` com o nome do vendedor, permitindo rastrear de onde veio o interesse
-- **Controle de status**: cada produto tem status independente: Disponível → Reservado → Vendido
-- **Cancelamento flexível**: reserva ou venda podem ser canceladas a qualquer momento, voltando o produto para Disponível
-- **Alerta de venda no WhatsApp**: ao confirmar uma venda, abre automaticamente uma mensagem no WhatsApp do administrador com resumo da venda para cobrança de comissão
-- **Histórico persistente**: todos os produtos anunciados ficam salvos no `localStorage`, mesmo após fechar o navegador
-- **Fallback automático de modelos**: se um modelo da API atingir o limite, tenta o próximo automaticamente
-- **Tema claro/escuro**
-- **100% offline-ready**: só precisa de internet para chamar a API do Gemini
+O anúncio sai **na hora**, sem depender de internet boa nem de serviço externo.
 
----
+## O texto do anúncio
 
-## 🚀 Como usar
-
-### 1. Abrir o app
-Acesse o link do GitHub Pages ou abra o arquivo `index.html` diretamente no navegador.
-
-### 2. Configurar (ícone ⚙️)
-| Campo | Descrição |
-|---|---|
-| Chave da API Gemini | Obtida gratuitamente em [aistudio.google.com](https://aistudio.google.com) |
-| Nome do brechó | Aparece no cabeçalho do anúncio |
-| Telefone do brechó | Número que recebe os interessados via WhatsApp |
-| Seu nome | Aparece no link rastreável para identificar o vendedor |
-| Seu WhatsApp | Recebe o resumo quando uma venda é confirmada |
-
-> A chave da API fica **apenas na memória da sessão**, nunca é salva ou enviada para nenhum servidor além da API do Google.
-
-### 3. Anunciar um produto
-1. Adicione uma foto (opcional, mas melhora muito o texto gerado)
-2. Preencha preço, tamanho, categoria e estado
-3. Clique em **Gerar mensagem com IA**
-4. Copie ou compartilhe direto no WhatsApp
-
-### 4. Controlar vendas (aba Histórico)
-- Todos os produtos anunciados aparecem aqui com status em tempo real
-- Mude o status de qualquer produto a qualquer momento
-- Ao confirmar uma venda, você recebe um resumo no WhatsApp para cobrar sua % de comissão
-
----
-
-## 🤖 Modelos de IA utilizados
-
-A ferramenta tenta os modelos nesta ordem, com retry automático em caso de limite:
-
-1. `gemini-2.5-flash` (principal)
-2. `gemini-2.5-flash-lite` (mais leve)
-3. `gemini-2.0-flash-lite` (fallback)
-4. `gemini-1.5-flash-latest` (último recurso)
-
-> O plano gratuito da API do Google permite ~10–15 requisições por minuto. Suficiente para uso normal.
-
----
-
-## 📦 Deploy no GitHub Pages
-
-1. Faça upload do arquivo `index.html` neste repositório
-2. Vá em **Settings → Pages**
-3. Em *Source*, selecione `Deploy from a branch` → `main` → `/ (root)`
-4. Salve e aguarde ~1 minuto
-5. Acesse: `https://<seu-usuario>.github.io/<nome-do-repositorio>/`
-
----
-
-## 🗂️ Estrutura
+O texto é montado no próprio navegador a partir do que foi marcado no
+formulário. Cada categoria tem seu vocabulário e cada estado de conservação tem
+sua forma de ser dito, e a escolha varia de peça para peça. Vinte anúncios
+seguidos no grupo não saem todos iguais.
 
 ```
-index.html   ← app completo (HTML + CSS + JS em um único arquivo)
-README.md    ← este arquivo
+Vestido com caimento bonito, tamanho M. Em ótimo estado, sem marcas de uso.
+Seda. Se gostou, chama que eu seguro pra você.
+
+Calçado confortável de verdade, tamanho 37. Nunca saiu do cabide: etiqueta
+ainda na peça. Peça única: saiu, acabou.
 ```
 
-Não há dependências externas além da fonte do Google Fonts (carregada via CDN) e da API do Gemini.
+## A IA é opcional
 
----
+Existe um modo que passa o texto por um modelo de linguagem para deixá-lo mais
+caprichado. Ele vem **desligado**, e por um motivo prático: o modelo roda num
+servidor pequeno e leva de 30 a 60 segundos por peça. Quem está na loja com a
+cliente esperando não tem esse tempo.
 
-## 🔒 Privacidade
+Com a opção ligada, se o modelo demorar ou estiver fora do ar, o anúncio sai
+com o texto local do mesmo jeito. A venda nunca trava por causa da IA.
 
-- Nenhum dado é enviado para servidores próprios
-- A chave da API é usada apenas para chamadas diretas à API do Google
-- O histórico de produtos fica salvo apenas no `localStorage` do navegador do usuário
+## Controle de vendas
 
----
+- Cada anúncio gera um link `wa.me` com código do produto e nome da vendedora,
+  então dá para saber de qual post veio o interesse
+- Status por peça: disponível, reservada, vendida, com cancelamento a qualquer
+  momento
+- Ao confirmar uma venda, abre uma mensagem com o resumo para acerto de comissão
+- Histórico fica salvo e sincronizado por vendedora
 
-## 📄 Licença
+## Rodando
+
+É um site estático. Para abrir localmente:
+
+```bash
+python3 -m http.server 8000
+```
+
+E acessar `http://localhost:8000`.
+
+Login e histórico usam Firebase Authentication e Firestore. A configuração do
+projeto fica no `app.js`, e o acesso aos dados é controlado pelas regras do
+Firestore, não pela chave, que é pública por natureza em aplicação web.
+
+## Estrutura
+
+```
+index.html   telas e formulário
+app.js       lógica, geração do texto, WhatsApp e persistência
+style.css    tema claro e escuro
+```
+
+## Licença
 
 MIT: use, modifique e distribua livremente.
