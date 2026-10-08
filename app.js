@@ -99,17 +99,11 @@ window.salvarConfig = salvarConfig;
    FIRESTORE: Persistência
 ════════════════════════════════════════════ */
 
-let _foto64 = null, _fotoFile = null, _msg = '', _histFiltro = '', _dark = true, _cfgOpen = false, _currentTab = 'anuncio';
+let _foto64 = null, _fotoFile = null, _msg = '', _histFiltro = '', _dbPronto = false, _dark = true, _cfgOpen = false, _currentTab = 'anuncio';
 let _products = [];
 
-// Backend Luxus IA. Em produção (GitHub Pages) usa o domínio público com HTTPS;
-// em dev (localhost) cai no backend local. window.IA_BASE_URL sempre tem prioridade.
-const IA_BASE_URL = (typeof window !== 'undefined' && window.IA_BASE_URL)
-  || (typeof location !== 'undefined' && location.hostname.endsWith('github.io')
-    ? 'https://api.luxusbrecho.com.br'
-    : 'http://127.0.0.1:8000');
-
 async function loadProductsFromDb() {
+  _dbPronto = false;
   try {
     const snap = await db.collection('products')
       .where('brecoOwner', '==', currentSellerId)
@@ -121,6 +115,7 @@ async function loadProductsFromDb() {
       _products = snap2.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (e2) { _products = []; }
   }
+  _dbPronto = true;
   updatePendBadge();
   if (_currentTab === 'historico') renderHistory();
 }
@@ -152,11 +147,14 @@ async function addSaleToDb(sale) {
 function applyTheme(dark) {
   _dark = dark;
   dark
-    ? document.documentElement.removeAttribute('data-theme')
-    : document.documentElement.setAttribute('data-theme', 'light');
+    ? document.documentElement.setAttribute('data-theme', 'dark')
+    : document.documentElement.removeAttribute('data-theme');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#17110F' : '#F3EFE7');
+  try { localStorage.setItem('luxus-tema', dark ? 'escuro' : 'claro'); } catch (e) {}
   document.getElementById('themeIcon').innerHTML = dark
-    ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
-    : '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+    ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+    : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
 }
 function toggleTheme() { applyTheme(!_dark); }
 window.toggleTheme = toggleTheme;
@@ -263,9 +261,7 @@ function ligarTecladoNasTags() {
 
 function showErr(m)   { const e = document.getElementById('errBar');   e.textContent = m; e.classList.add('on'); }
 function hideErr()    { document.getElementById('errBar').classList.remove('on'); }
-function showRetry(m) { const r = document.getElementById('retryBar'); r.textContent = m; r.classList.add('on'); }
-function hideRetry()  { document.getElementById('retryBar').classList.remove('on'); }
-function hideStatus() { hideErr(); hideRetry(); }
+function hideStatus() { hideErr(); }
 function toast(m, ms = 2600) {
   const t = document.getElementById('toast');
   t.textContent = m; t.classList.add('on');
@@ -278,18 +274,6 @@ function setLoading(on) {
   b.innerHTML = on
     ? '<div class="dots"><span></span><span></span><span></span></div> Gerando…'
     : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Gerar anúncio';
-}
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-function finalizarDesc(text) {
-  if (!text) return '';
-  const t = text.trim();
-  let last = -1;
-  for (let i = t.length - 1; i >= 0; i--) { if ('.!?'.includes(t[i])) { last = i; break; } }
-  if (last > 0 && last < t.length - 1) return t.slice(0, last + 1);
-  if (last === -1) return t + '.';
-  return t;
 }
 
 function updatePendBadge() {
@@ -397,6 +381,15 @@ window.registrarVendaFisica = registrarVendaFisica;
    UI: Render Histórico
 ════════════════════════════════════════════ */
 
+const CABIDE_VAZIO = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 5.2a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4v.7"/><path d="M12 9.5 3.4 15.6c-.9.6-.5 2 .6 2h16c1.1 0 1.5-1.4.6-2z"/></svg>';
+
+// numero com contagem animada (efeitos.js); sem ele, troca direto
+function setNum(id, n) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (window.contar) window.contar(el, n); else el.textContent = n;
+}
+
 function buscarHist(q) {
   _histFiltro = (q || '').trim().toLowerCase();
   renderHistory();
@@ -408,20 +401,34 @@ function renderHistory() {
   const vendasHoje = _products.filter(p => p.status === 'sold' && ehHoje(p.soldAt));
   const disp = _products.filter(p => p.status === 'available').length;
   const res  = _products.filter(p => p.status === 'reserved').length;
-  document.getElementById('cntDisp').textContent = disp;
-  document.getElementById('cntRes').textContent  = res;
-  document.getElementById('cntVend').textContent = vendasHoje.length;
+  setNum('cntDisp', disp);
+  setNum('cntRes', res);
+  setNum('cntVend', vendasHoje.length);
 
   if (!_products.length) {
-    list.innerHTML = '<div class="hist-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="3"/></svg><p>Nenhum produto ainda</p><small>Gere um anúncio na aba Anunciar</small></div>';
+    list.innerHTML = !_dbPronto
+      ? '<div class="skel"></div><div class="skel"></div><div class="skel"></div>'
+      : '<div class="hist-empty">' + CABIDE_VAZIO + '<p>Nenhum produto ainda</p><small>Gere um anúncio na aba Anunciar</small></div>';
     return;
   }
 
-  const sorted = [..._products].sort((a, b) => {
+  let base = _products;
+  if (_histFiltro) {
+    base = _products.filter(p =>
+      (p.prodCod || '').toLowerCase().includes(_histFiltro) ||
+      (p.cats || []).join(' ').toLowerCase().includes(_histFiltro) ||
+      (p.brecoNome || '').toLowerCase().includes(_histFiltro));
+  }
+  const sorted = [...base].sort((a, b) => {
     const ord = { available: 0, reserved: 1, sold: 2 };
     if (ord[a.status] !== ord[b.status]) return ord[a.status] - ord[b.status];
     return b.ts - a.ts;
   });
+
+  if (!sorted.length) {
+    list.innerHTML = '<div class="hist-empty">' + CABIDE_VAZIO + '<p>Nenhuma peça encontrada</p><small>Confira o código, ele vem no fim da mensagem da cliente</small></div>';
+    return;
+  }
 
   list.innerHTML = sorted.map(p => {
     const isPhysical  = p.type === 'physical';
@@ -451,8 +458,9 @@ function renderHistory() {
 
     const itemClass = isPhysical ? 'hist-item physical-item' : 'hist-item';
     return '<div class="' + itemClass + '"><div class="hist-item-top">' + thumbHtml
-      + '<div class="hist-info"><div class="hist-name">' + (p.emoji || '') + ' ' + (p.cats.join(', ') || 'Produto') + (p.tam ? ' | ' + p.tam : '') + '</div>'
+      + '<div class="hist-info"><div class="hist-name">' + (p.emoji || '') + ' ' + ((p.cats || []).map(c => c.replace(/^[^\p{L}\p{N}]+\s+/u, '')).join(', ') || 'Produto') + (p.tam ? ' | ' + p.tam : '') + '</div>'
       + '<div class="hist-meta">' + (p.brecoNome || 'Brechó') + (p.estLabel ? ' | ' + p.estLabel : '') + '</div>'
+      + (p.prodCod ? '<div class="hist-code">🔖 ' + p.prodCod + '</div>' : '')
       + '<div class="hist-price">R$ ' + p.precoStr + '</div></div></div>'
       + '<div class="hist-status ' + statusClass + '">' + statusLabel + '</div>'
       + '<div class="hist-time">' + data + ' às ' + hora + '</div>'
@@ -480,59 +488,72 @@ window.removerVendaFisica = removerVendaFisica;
 
 function buildLink(tel, nome, cats, precoStr, tam, prodCod, obs) {
   const t = tel.replace(/\D/g, '').slice(0, 15); if (!t) return null;
-  // Mensagem que o cliente manda ao clicar: identifica a peça de forma clara,
-  // com o detalhe que a vendedora escreveu e o codigo em destaque, pra Gloria
-  // saber na hora qual peça é (e poder buscar pelo codigo no historico).
-  const catLabel = cats && cats.length ? cats[0].replace(/^\S+\s/, '') : 'peça';
-  const ico      = cats && cats.length ? cats[0].split(' ')[0] : '🛍️';
-  const detalhe  = obs ? ' ' + obs.trim().replace(/\s*\.?\s*$/, '') : '';
-  const tamPart  = tam ? ' (tam ' + tam + ')' : '';
-  const linhaItem  = ico + ' ' + catLabel + detalhe + tamPart;
-  const linhaPreco = precoStr ? '\n💰 R$ ' + precoStr : '';
-  const linhaCod   = prodCod ? '\n🔖 Código ' + prodCod : '';
+  // Mensagem que a cliente manda ao clicar. Curta e sem emoji de propósito:
+  // cada emoji vira 12 caracteres no link e o post do grupo fica poluído.
+  // O código vem primeiro porque é por ele que a dona da loja acha a peça no
+  // histórico; o detalhe ajuda a reconhecer sem nem precisar buscar.
+  const catLabel = cats && cats.length ? cats[0].replace(/^\S+\s/, '') : 'Peça';
+  let det = (obs || '').trim().replace(/\s*\.+\s*$/, '');
+  if (det.length > 40) det = det.slice(0, 40).replace(/\s+\S*$/, '');
+  const partes = [catLabel + (det ? ' ' + det : '')];
+  if (tam)      partes.push('tam ' + tam);
+  if (precoStr) partes.push('R$ ' + precoStr);
   const loja = nome ? ' do ' + nome.slice(0, 30) : '';
-  const txt = 'Oi! Tenho interesse nesta peça' + loja + ' 😊\n\n'
-            + linhaItem + linhaPreco + linhaCod
-            + '\n\n(cheguei pelo anúncio do grupo)';
+  const txt = 'Oi! Tenho interesse na peça' + (prodCod ? ' ' + prodCod : '') + loja + ': ' + partes.join(', ');
   return 'https://wa.me/' + t + '?text=' + encodeURIComponent(txt);
 }
 
 function descLocal(cats, estado, tam, obs) {
   const cat = cats.length   ? cats[0].replace(/^\S+\s/, '')   : 'Peça';
   const est = estado.length ? estado[0].replace(/^\S+\s/, '') : 'Bom';
-  const chave = (cat + est + tam + obs).toLowerCase();
+  const det = (obs || '').trim().replace(/\s*\.+\s*$/, '');
+  const chave = (cat + est + tam + det).toLowerCase();
 
   // Escolha estável: a mesma peça gera sempre o mesmo texto, mas peças
   // diferentes geram textos diferentes. Evita o grupo receber vinte posts
-  // terminando na mesma frase.
+  // começando e terminando igual.
   let h = 0;
   for (let i = 0; i < chave.length; i++) h = (h * 31 + chave.charCodeAt(i)) >>> 0;
   const pega = (lista, desvio) => lista[(h + (desvio || 0)) % lista.length];
 
+  // Chamada de grupo de promoção: a primeira linha é a que aparece na
+  // notificação, então ela precisa fazer a pessoa abrir.
+  const GANCHOS = [
+    '✨ Achadinho novo na arara!',
+    '✨ Garimpo fresquinho pro grupo!',
+    '✨ Olha o que acabou de chegar!',
+    '✨ Chegou peça nova!',
+    '✨ Separei essa pra vocês!',
+    '✨ Novidade no brechó!'
+  ];
+
   const PORCATEGORIA = {
-    'Vestido':   ['Vestido que resolve o look sozinho', 'Vestido fácil de usar, só jogar e sair',
-                  'Vestido com caimento bonito'],
+    'Vestido':   ['Vestido que resolve o look sozinho', 'Vestido fácil de usar, é só jogar e sair',
+                  'Vestido com caimento bonito', 'Vestido que vai do almoço ao rolê'],
     'Camisa':    ['Camisa coringa, combina com tudo', 'Camisa que serve pro trabalho e pro rolê',
-                  'Camisa de tecido gostoso'],
+                  'Camisa de tecido gostoso', 'Camisa que não sai de moda'],
     'Blusa':     ['Blusa pra usar o ano todo', 'Blusa confortável do jeito que a gente gosta',
-                  'Blusa simples de combinar'],
+                  'Blusa simples de combinar', 'Blusa que dá um up em qualquer calça'],
     'Calça':     ['Calça com caimento ótimo', 'Calça confortável pro dia inteiro',
-                  'Calça que valoriza qualquer look'],
+                  'Calça que valoriza qualquer look', 'Calça daquelas que viram favorita'],
     'Short':     ['Short leve, perfeito pro calor', 'Short confortável pro dia a dia',
-                  'Short fácil de combinar'],
+                  'Short fácil de combinar', 'Short pronto pro fim de semana'],
     'Casaco':    ['Casaco quentinho pros dias frios', 'Casaco que fecha o look com estilo',
-                  'Casaco confortável e versátil'],
+                  'Casaco confortável e versátil', 'Casaco pra sair bem vestida no frio'],
     'Calçado':   ['Calçado confortável de verdade', 'Calçado que combina com vários looks',
-                  'Calçado pronto pra andar muito'],
+                  'Calçado pronto pra andar muito', 'Calçado que chama atenção do jeito certo'],
     'Bolsa':     ['Bolsa que acompanha o dia inteiro', 'Bolsa com espaço pro que importa',
-                  'Bolsa coringa pra qualquer ocasião'],
+                  'Bolsa coringa pra qualquer ocasião', 'Bolsa que deixa o look mais arrumado'],
     'Acessório': ['Acessório que dá outro ar no look', 'Acessório pra usar sem pensar muito',
-                  'Acessório que faz diferença no detalhe']
+                  'Acessório que faz diferença no detalhe', 'Acessório que vira assunto'],
+    // sem categoria marcada: serve pra qualquer coisa, não só roupa
+    'Peça':      ['Peça bem cuidada e cheia de estilo', 'Achado que vale cada centavo',
+                  'Peça bonita do jeito que a gente gosta de garimpar', 'Achado bom demais pra ficar parado']
   };
 
   // Frases sem marca de gênero: a mesma lista serve para bolsa e para casaco.
   const PORESTADO = {
-    'Novo c/ etiqueta': ['Peça nova, com etiqueta, nunca usada.',
+    'Novo c/ etiqueta': ['Nova, com etiqueta, nunca usada.',
                          'Nunca saiu do cabide: etiqueta ainda na peça.',
                          'Chegou e já vai: nova, com etiqueta.'],
     'Ótimo':            ['Em ótimo estado, sem marcas de uso.',
@@ -544,20 +565,25 @@ function descLocal(cats, estado, tam, obs) {
   };
 
   const FECHOS = [
-    'Garimpo do dia, e é peça única.',
-    'Só tem essa, quem chamar primeiro leva.',
     'Peça única: saiu, acabou.',
-    'Separei essa com carinho pro grupo.',
-    'Se gostou, chama que eu seguro pra você.'
+    'Só tem essa, quem chamar primeiro leva.',
+    'Gostou? Chama que eu separo pra você.',
+    'É garimpo, então não tem repetida.',
+    'Corre que essa não volta pra arara.'
   ];
 
-  const abertura = (PORCATEGORIA[cat] ? pega(PORCATEGORIA[cat]) : cat)
-                 + (tam ? ', tamanho ' + tam : '') + '.';
-  const condicao = (PORESTADO[est] ? pega(PORESTADO[est], 1) : est + '.');
-  const detalhe  = obs ? ' ' + obs.replace(/\s*\.?\s*$/, '') + '.' : '';
-  const fecho    = pega(FECHOS, 2);
+  // peça sem categoria pode ser luminária, livro, louça: aí "arara" não cabe
+  const semArara = l => cat === 'Peça' ? l.filter(f => !f.includes('arara')) : l;
+  const tamTxt = tam ? ', tamanho ' + tam : '';
+  const frases = PORCATEGORIA[cat] || PORCATEGORIA['Peça'];
+  // O detalhe que a vendedora escreveu é a informação mais específica da
+  // peça, então ele abre o texto em vez de ficar escondido no meio.
+  const corpo = det
+    ? det.charAt(0).toUpperCase() + det.slice(1) + tamTxt + '. ' + pega(frases) + '.'
+    : pega(frases) + tamTxt + '.';
+  const condicao = PORESTADO[est] ? pega(PORESTADO[est], 1) : est + '.';
 
-  return abertura + ' ' + condicao + detalhe + ' ' + fecho;
+  return pega(semArara(GANCHOS), 3) + '\n' + corpo + ' ' + condicao + '\n' + pega(semArara(FECHOS), 2);
 }
 
 /* ════════════════════════════════════════════
@@ -735,5 +761,7 @@ window.fecharCaixaHoje = fecharCaixaHoje;
 /* ════════════════════════════════════════════
    INIT
 ════════════════════════════════════════════ */
-applyTheme(true);
+let _temaSalvo = null;
+try { _temaSalvo = localStorage.getItem('luxus-tema'); } catch (e) {}
+applyTheme(_temaSalvo === 'escuro');
 ligarTecladoNasTags();
