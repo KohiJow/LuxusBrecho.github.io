@@ -270,6 +270,12 @@ def fluxo_principal(b, url, saida):
     codigo_card = pg.inner_text("#histList .hist-code") if pg.locator("#histList .hist-code").count() else ""
     checa(bool(cod) and cod.group(1) in codigo_card, "codigo aparece no card do historico")
     checa(pg.inner_text("#histList .hist-name").count("\U0001F45F") == 1, "emoji nao duplica no nome")
+    # a fixture e um retrato (4:5): a miniatura tem que ficar presa na moldura, sem vazar por baixo
+    caixas = pg.evaluate("(() => { const m = document.querySelector('#histList .hist-thumb').getBoundingClientRect();"
+                         " const f = document.querySelector('#histList .hist-thumb img').getBoundingClientRect();"
+                         " return [m.top, m.bottom, m.left, m.right, f.top, f.bottom, f.left, f.right]; })()")
+    checa(caixas[4] >= caixas[0] - 1 and caixas[5] <= caixas[1] + 1 and caixas[6] >= caixas[2] - 1 and caixas[7] <= caixas[3] + 1,
+          "foto em retrato fica dentro da moldura da miniatura")
     checa(pg.inner_text("#cntDisp").strip() == "1", "contador de disponiveis = 1")
     foto(pg, saida / "6-historico.png", True)
     if cod:
