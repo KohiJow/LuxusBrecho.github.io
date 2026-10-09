@@ -94,8 +94,8 @@ mudou:
 
 - **Cabeçalho tremendo perto do topo**: ao rolar, ele encolhia de verdade
   (padding e logo), o conteúdo subia, o navegador corrigia a rolagem e ele
-  voltava a crescer, sem parar (86 trocas em 1,5 s a 10 px do topo). Agora a
-  altura não muda: o sticky para 8 px acima da tela e só sombra, borda e o
+  voltava a crescer, sem parar (até 87 trocas em 1,5 s a 10 px do topo, no
+  Chromium; no WebKit não acontecia). Agora a altura não muda: o sticky para 8 px acima da tela e só sombra, borda e o
   logo (por `transform`) mudam
 - **Cartão do anúncio e confete repetindo**: quando o banco confirmava o
   anúncio (um segundo depois, na rede de verdade), o cartão animava de novo e
@@ -126,8 +126,8 @@ mudou:
   decodificada; com o modal aberto, as animações de trás param
 
 Com a CPU 4x mais lenta, o intervalo entre quadros (p95) caiu de 33 para 17 ms
-na abertura do login, ao gerar o anúncio e no histórico, e de 50 a 67 para
-17 ms na troca de tema.
+na abertura do login (seis rodadas de cada lado), ao gerar o anúncio, no
+histórico, ao rolar e no modal, e de 50 a 67 para 17 ms na troca de tema.
 
 **Reduzir movimento.** Quem liga "Reduzir movimento" no iPhone, ou "Remover
 animações" no Android (alguns Android ligam isso junto com a economia de
