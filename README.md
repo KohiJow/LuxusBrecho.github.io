@@ -46,14 +46,14 @@ Tem marcas discretas de uso, nada que incomode.
 Só tem essa, quem chamar primeiro leva.
 ```
 
-## Por que não tem IA
+## Por que o texto é montado no navegador
 
-Já teve. Um modelo local num servidor pequeno levava de 30 a 60 segundos por
-peça, e uma API paga acabava a cota. Quem está na loja com a cliente esperando
-não tem esse tempo, e o texto montado no navegador sai na hora, de graça e sem
-depender de nada fora do celular. As opções gratuitas e rápidas exigem um
-servidor só para guardar a chave com segurança, o que não compensa para um
-texto de três linhas.
+Já foi escrito por um serviço de fora. Num servidor pequeno levava de 30 a 60
+segundos por peça, e a opção paga acabava a cota. Quem está na loja com a
+cliente esperando não tem esse tempo, e o texto montado no navegador sai na
+hora, de graça e sem depender de nada fora do celular. As opções gratuitas e
+rápidas exigem um servidor só para guardar a chave com segurança, o que não
+compensa para um texto de três linhas.
 
 ## Interface
 
@@ -123,7 +123,25 @@ mudou:
   bolinha dos cartões pulsa por `transform` em vez de `box-shadow`; a foto
   revela só com filtros de cor, sem `blur`; as miniaturas decodificam fora do
   quadro (`decoding="async"`); a polaroid só entra com a foto já
-  decodificada; com o modal aberto, as animações de trás param
+  decodificada; com o modal aberto, as animações de trás param (menos a onda
+  do toque que abriu o modal, que antes ficava congelada no botão)
+- **Tema escuro abrindo claro**: o `app.js` é módulo e só roda depois de
+  baixar o SDK do Firebase. Quem usa o tema escuro via a abertura do login
+  inteira no tema claro e a tela escurecendo no meio da animação. Agora o
+  `inicio.js`, no `<head>`, põe o tema salvo antes da primeira pintura
+- **Login cortado para quem já está logada**: a tela de login começava a
+  animar e sumia quando o Firebase confirmava a sessão (1,5 s de login na
+  tela, com o SDK de verdade contra o emulador e o CDN atrasado como numa
+  rede de celular). Agora o app guarda só a marca `luxus-sessao` no
+  `localStorage` ao entrar (e apaga ao sair), e o `inicio.js` esconde o
+  login enquanto o Firebase responde. Se ele não responder em 3,5 s, o login
+  aparece do mesmo jeito
+- **Topo do anúncio atrás do cabeçalho**: o `scrollIntoView` media o cartão
+  ainda deslocado pela animação de entrada e rolava demais; o "salvo no
+  histórico" e o tique ficavam escondidos atrás do cabeçalho grudado. Agora
+  o `app.js` calcula a posição sem o deslocamento e para o cartão logo
+  abaixo do cabeçalho, e o `scroll-padding-top` faz o mesmo com o campo que
+  recebe foco depois de um erro
 
 Com a CPU 4x mais lenta, o intervalo entre quadros (p95) caiu de 33 para 17 ms
 na abertura do login (seis rodadas de cada lado), ao gerar o anúncio, no
@@ -137,7 +155,11 @@ Nesse caso as Configurações mostram um aviso explicando por que nada se mexe.
 O WebKit do Playwright não é o Safari do iPhone: é o mesmo motor, numa versão
 recente, rodando em Linux sem GPU. Ele serve para conferir que cada animação
 aparece e termina no estado certo (os testes congelam a animação no meio e
-olham a tela), não para medir fluidez; a fluidez foi medida no Chromium. Os
+olham a tela), não para medir fluidez; a fluidez foi medida no Chromium. No
+WebKit sem GPU, o app logado pinta menos de 1 quadro por segundo enquanto as três
+animações que nunca param (o brilho do título, o brilho do botão principal e
+o pulso das bolinhas) estão rodando, e perto de 60 sem elas; isso ainda não
+foi conferido num iPhone de verdade (Safari, Web Inspector, aba Layers). Os
 recursos novos têm alternativa: View Transitions (iOS 18), `dvh` e `:has()`
 (iOS 15.4). Versões do iOS abaixo da 15.4 não foram testadas.
 
@@ -259,8 +281,9 @@ o app faz tem que passar, e o que um invasor tentaria tem que ser recusado.
   distinguir conta inexistente de senha errada. "Esqueci minha senha" responde
   a mesma frase para email com e sem conta. Os campos têm `autocomplete` de
   email e `current-password` para o gerenciador de senhas do celular
-- No navegador ficam só as configurações da loja (telefone, nome) e o tema,
-  em `localStorage`. Nada vai para o console
+- No navegador ficam só as configurações da loja (telefone, nome), o tema e a
+  marca de sessão aberta (o valor `1`, nada da conta), em `localStorage`. Nada
+  vai para o console
 
 ### O que fica em aberto
 
@@ -301,9 +324,13 @@ Transitions), sair. As animações são congeladas no meio pela Web Animations
 API para conferir que aparecem (o título se escrevendo, a foto revelando, o
 confete espalhado) e soltas para conferir o estado final; o cabeçalho não
 pode tremer perto do topo, a folha do modal não pode abrir vão, e o cartão do
-anúncio anima e solta confete uma vez só mesmo com o banco demorando. Repete
-as telas em 360 e 430px e com "reduzir movimento". Falha com qualquer erro
-de JavaScript ou violação de CSP no console. As capturas de tela ficam em
+anúncio anima e solta confete uma vez só mesmo com o banco demorando e para
+abaixo do cabeçalho, com o topo à vista. Com o SDK preso de propósito (como na
+rede de celular), confere o que o `inicio.js` resolve antes de o `app.js`
+rodar: tema escuro desde o primeiro quadro, login escondido para quem já está
+logada, login de volta quando a sessão não vale mais ou o Firebase não
+responde. Repete as telas em 360 e 430px e com "reduzir movimento". Falha
+com qualquer erro de JavaScript ou violação de CSP no console. As capturas de tela ficam em
 `tests/saida/<motor>` (fora do git). A fixture `tests/peca-teste.jpg` é uma
 imagem neutra, não uma foto da loja; as fotos em retrato e paisagem são
 geradas na hora.
@@ -363,6 +390,8 @@ uma cópia da página com as duas portas somadas ao `connect-src`.
 
 ```
 index.html            telas e formulário; CSP no <head>
+inicio.js             roda no <head>, antes da primeira pintura: tema salvo e
+                      login escondido para quem já está logada
 app.js                módulo ES com o SDK modular do Firebase; lógica em um
                       escopo só, em 13 seções: login, config, banco, tema e
                       abas, foto, etiquetas, texto do anúncio, gerar e
