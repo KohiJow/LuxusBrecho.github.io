@@ -28,7 +28,7 @@ AQUI = Path(__file__).resolve().parent
 RAIZ = AQUI.parent
 FOTO = str(AQUI / "peca-teste.jpg")
 STUB = (AQUI / "stub.js").read_text(encoding="utf-8")
-USUARIA = "{uid:'uid-teste', email:'teste@exemplo.com'}"
+USUARIA = "{uid:'uid-teste', email:'teste@example.com'}"
 CAMPOS_PRODUTO = {"ts", "emoji", "cats", "estado", "estLabel", "tam", "obs", "precoNum", "precoStr", "link", "msg",
                   "foto64", "prodCod", "brecoNome", "brecoOwner", "sellerEmail", "status", "soldAt", "cashoutSent", "type"}
 
@@ -133,7 +133,7 @@ def fluxo_principal(b, url, saida):
     tema(pg, False)
 
     # login errado: a mensagem nao conta se o email existe
-    pg.fill("#loginEmail", "alguem@exemplo.com")
+    pg.fill("#loginEmail", "alguem@example.com")
     pg.fill("#loginSenha", "errada")
     pg.click("#btnLogin")
     pg.wait_for_timeout(300)
@@ -151,7 +151,7 @@ def fluxo_principal(b, url, saida):
     pg.wait_for_timeout(200)
     checa("Digite seu email" in pg.inner_text("#loginErr"), "esqueci a senha sem email pede o email")
     checa(pg.evaluate("document.activeElement.id") == "loginEmail", "e leva o foco pro campo")
-    pg.fill("#loginEmail", "alguem@exemplo.com")
+    pg.fill("#loginEmail", "alguem@example.com")
     pg.click("#btnEsqueci")
     pg.wait_for_timeout(300)
     checa("Se esse email tiver conta" in pg.inner_text("#loginMsg"), "esqueci a senha confirma sem revelar se a conta existe")
@@ -161,7 +161,7 @@ def fluxo_principal(b, url, saida):
     # entra como usuaria de teste (falsa), com o banco demorando pra mostrar o esqueleto
     entra(pg, 2500)
     checa(pg.is_hidden("#loginScreen") and pg.is_visible("#appWrapper"), "entrou no app")
-    checa(pg.inner_text("#loggedEmail") == "teste@exemplo.com", "email da conta aparece no cabecalho")
+    checa(pg.inner_text("#loggedEmail") == "teste@example.com", "email da conta aparece no cabecalho")
     pg.click("#tabHistorico")
     pg.wait_for_timeout(500)
     checa(pg.locator("#histList .skel").count() == 3, "esqueleto enquanto o banco carrega")

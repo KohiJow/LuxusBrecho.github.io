@@ -46,8 +46,8 @@ def token(uid, email):
     return b64url(cabecalho) + "." + b64url(corpo) + "."
 
 
-ANA = token("uid-ana", "ana@exemplo.com")
-BIA = token("uid-bia", "bia@exemplo.com")
+ANA = token("uid-ana", "ana@example.com")
+BIA = token("uid-bia", "bia@example.com")
 
 
 def valor(v):
@@ -127,18 +127,18 @@ ONLINE = {
     "link": "https://wa.me/5511900000000?text=Oi!%20Tenho%20interesse%20na%20pe%C3%A7a%20ABC234",
     "msg": "\U0001F45F *Luxus Brechó*\n\n\u2728 Chegou peça nova!\n\n\U0001F4B0 *R$ 45,00*\n\U0001F516 Código *ABC234*",
     "foto64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==",
-    "prodCod": "ABC234", "brecoNome": "Luxus Brechó", "brecoOwner": "uid-ana", "sellerEmail": "ana@exemplo.com",
+    "prodCod": "ABC234", "brecoNome": "Luxus Brechó", "brecoOwner": "uid-ana", "sellerEmail": "ana@example.com",
     "status": "available", "soldAt": None, "cashoutSent": False, "type": "online",
 }
 FISICO = {
     "ts": AGORA, "emoji": "\U0001F3EA", "cats": ["Bolsa de couro bege"], "estado": [], "estLabel": "Venda física", "tam": "",
     "obs": "", "precoNum": 80.5, "precoStr": "80,50", "link": "", "msg": "", "foto64": None,
-    "brecoNome": "Luxus Brechó", "brecoOwner": "uid-ana", "sellerEmail": "ana@exemplo.com",
+    "brecoNome": "Luxus Brechó", "brecoOwner": "uid-ana", "sellerEmail": "ana@example.com",
     "status": "sold", "soldAt": AGORA, "cashoutSent": False, "type": "physical",
 }
 EVENTO = {"productId": "abc", "type": "status_changed", "from": "available", "to": "reserved",
-          "by": "uid-ana", "byEmail": "ana@exemplo.com", "at": AGORA}
-VENDA = {"productId": "abc", "sellerId": "uid-ana", "sellerEmail": "ana@exemplo.com", "valor": 45,
+          "by": "uid-ana", "byEmail": "ana@example.com", "at": AGORA}
+VENDA = {"productId": "abc", "sellerId": "uid-ana", "sellerEmail": "ana@example.com", "valor": 45,
          "brecoNome": "Luxus Brechó", "soldAt": AGORA, "cashoutSent": False, "type": "online"}
 
 
@@ -168,7 +168,7 @@ def main():
 
     casos_recusados = {
         "dono diferente do uid": variante(ONLINE, brecoOwner="uid-bia"),
-        "email diferente do token": variante(ONLINE, sellerEmail="outra@exemplo.com"),
+        "email diferente do token": variante(ONLINE, sellerEmail="outra@example.com"),
         "campo a mais": variante(ONLINE, admin=True),
         "campo faltando": variante(ONLINE, status=KeyError),
         "status fora da lista": variante(ONLINE, status="deleted"),
@@ -232,7 +232,7 @@ def main():
     r_ev = cria("events", EVENTO, ANA)
     aceita(r_ev, "evento de status do jeito que o app grava")
     recusa(cria("events", variante(EVENTO, by="uid-bia"), ANA), "nao cria evento: by diferente do uid")
-    recusa(cria("events", variante(EVENTO, byEmail="x@exemplo.com"), ANA), "nao cria evento: email diferente do token")
+    recusa(cria("events", variante(EVENTO, byEmail="x@example.com"), ANA), "nao cria evento: email diferente do token")
     recusa(cria("events", variante(EVENTO, **{"from": "reserved"}), ANA), "nao cria evento: de e para iguais")
     recusa(cria("events", variante(EVENTO, type="login"), ANA), "nao cria evento: tipo fora da lista")
     recusa(cria("events", variante(EVENTO, extra=1), ANA), "nao cria evento: campo a mais")
