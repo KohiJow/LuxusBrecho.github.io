@@ -153,9 +153,11 @@ o app faz tem que passar, e o que um invasor tentaria tem que ser recusado.
 ### O que o navegador aceita executar
 
 - **Content-Security-Policy** no `<meta>` do `index.html`: script só do
-  próprio site e do CDN do Firebase (`www.gstatic.com`), estilo só do próprio
-  site e do Google Fonts, conexões só com os endpoints do Firebase, nada de
-  `object`, `base` ou envio de formulário para fora. Não há `'unsafe-inline'`
+  próprio site e da pasta do Firebase no CDN (`www.gstatic.com/firebasejs/`),
+  estilo só do próprio site e do Google Fonts, imagem só do próprio site e em
+  `data:`, conexões só com Authentication e Firestore (o app não usa Realtime
+  Database, então `firebaseio.com` não entra), nada de `object`, `base` ou
+  envio de formulário para fora. Não há `'unsafe-inline'`
   nem para script nem para estilo: nenhum botão usa `onclick`, cada um declara
   `data-action` e o `app.js` trata o clique por delegação, e o HTML não tem
   `style=` (os atrasos das folhas do fundo viraram regras por posição no CSS;
