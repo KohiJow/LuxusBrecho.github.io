@@ -370,6 +370,7 @@ def fluxo_principal(b, url, saida):
     checa(pg.evaluate("document.documentElement.getAttribute('data-theme')") == "dark", "botao troca pro tema escuro")
     checa(pg.evaluate("localStorage.getItem('luxus-tema')") == "escuro", "tema fica salvo")
     checa(pg.get_attribute("#btnTheme", "aria-label") == "Mudar para o tema claro", "rotulo do botao acompanha o tema")
+    checa(pg.is_visible("#iconeSol") and pg.is_hidden("#iconeLua"), "no escuro o botao mostra o sol")
     foto(pg, saida / "8-historico-noite.png", True)
     pg.click("#tabAnuncio")
     pg.wait_for_timeout(700)

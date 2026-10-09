@@ -279,8 +279,10 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', escuro ? '#17110F' : '#F3EFE7');
     try { localStorage.setItem(TEMA_KEY, escuro ? 'escuro' : 'claro'); } catch (e) { /* sem storage, o tema só não fica salvo */ }
-    $('iconeLua').hidden = escuro;
-    $('iconeSol').hidden = !escuro;
+    // os ícones são <svg>: o atributo hidden precisa ir pelo DOM, porque a
+    // propriedade .hidden só existe em elemento HTML e no SVG não faz nada
+    $('iconeLua').toggleAttribute('hidden', escuro);
+    $('iconeSol').toggleAttribute('hidden', !escuro);
     $('btnTheme').setAttribute('aria-label', escuro ? 'Mudar para o tema claro' : 'Mudar para o tema escuro');
   }
 
