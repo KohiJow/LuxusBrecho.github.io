@@ -462,6 +462,12 @@ def fluxo_principal(b, url, saida):
           "salvo chegando depois nao reanima o cartao nem repete o confete (%d animacao, %d confete)"
           % (pg.evaluate("window.__inicios"), pg.evaluate("window.__confetes")))
     checa(pg.locator(".confete").count() == 0, "confete sai da pagina quando termina")
+    # o cartao rola ate a vista e para logo abaixo do cabecalho grudado: o topo
+    # dele (o "salvo no historico" e o tique) nao pode ficar escondido atras
+    chega(pg, """(() => { const h = document.querySelector('.header').getBoundingClientRect();
+        const t = document.querySelector('#resultCard .result-top').getBoundingClientRect();
+        return t.top >= h.bottom - 1 && t.bottom <= innerHeight; })()""",
+          "cartao do anuncio para abaixo do cabecalho, com o topo a vista")
     pg.evaluate("window.__atrasoAdd = 0")
     checa(pg.is_visible("#resultCard"), "anuncio gerado na hora")
     checa(pg.inner_text("#resultStatus") == "Anúncio pronto e salvo no histórico", "topo do resultado confirma que salvou")
@@ -561,6 +567,9 @@ def fluxo_principal(b, url, saida):
           window.__vao = Math.max(window.__vao, innerHeight - r.bottom); if (performance.now() - t0 < 900) requestAnimationFrame(f); };
         requestAnimationFrame(f); }""")
     pg.click("[data-action='venda-loja']")
+    onda = pg.evaluate("""() => { const o = document.querySelector('[data-action=venda-loja] .ripple');
+        return o ? getComputedStyle(o).animationPlayState : 'sem onda'; }""")
+    checa(onda == "running", "a onda do toque que abriu o modal termina, nao congela atras do veu (%s)" % onda)
     pg.wait_for_timeout(900)
     checa(pg.evaluate("window.__vao") <= 1, "folha da venda na loja nao abre vao embaixo ao subir (%.1f px)" % pg.evaluate("window.__vao"))
     checa(pg.evaluate("document.getElementById('modalVendaFisica').classList.contains('on')"), "modal abre")
@@ -700,6 +709,99 @@ def anuncio_seguido(b, url):
     ctx.close()
 
 
+# Amostra o que a tela vai pintar: a cada quadro e tambem por relogio (40 ms),
+# porque o WebKit do conteiner pinta poucos quadros por segundo e o primeiro
+# pode chegar depois de tudo ja ter acontecido. So conta depois que as folhas
+# de estilo carregaram: antes disso o navegador nao pinta nada (elas bloqueiam
+# a pintura), mas o getComputedStyle do WebKit responde como se nao houvesse CSS.
+AMOSTRA_QUADROS = """window.__quadros = []; (function () {
+    const amostra = () => { const b = document.body, l = document.getElementById('loginScreen'), a = document.getElementById('appWrapper');
+        const folhas = [...document.querySelectorAll('link[rel=stylesheet]')];
+        if (b && l && a && folhas.length && folhas.every(f => f.sheet)) window.__quadros.push({ t: Math.round(performance.now()), tema: document.documentElement.getAttribute('data-theme'),
+            fundo: getComputedStyle(b).backgroundColor, login: !l.hidden && getComputedStyle(l).display !== 'none',
+            app: !a.hidden, appRodou: !!window.__config }); };
+    const f = () => { amostra(); if (performance.now() < 20000) requestAnimationFrame(f); };
+    requestAnimationFrame(f);
+    const relogio = setInterval(() => { amostra(); if (performance.now() > 20000) clearInterval(relogio); }, 40); })();"""
+
+
+def abre_com_sdk_preso(b, url, init):
+    """Abre o app segurando os modulos do Firebase: o app.js (modulo) fica
+    esperando por eles, como no celular com rede lenta. Devolve a pagina depois
+    de pelo menos um quadro pintado e a funcao que solta o SDK."""
+    ctx = contexto(b, url)
+    presos = []
+    ctx.route("**/firebasejs/**", lambda r: presos.append(r))
+    ctx.add_init_script(init + AMOSTRA_QUADROS)
+    pg = ctx.new_page()
+    vigia(pg)
+    pg.goto(url, wait_until="commit")
+    espera(pg, "window.__quadros.length >= 1", timeout=20000)
+
+    def solta_sdk():
+        limite = time.time() + 10
+        while len(presos) < 3 and time.time() < limite:
+            pg.wait_for_timeout(50)
+        for r in presos:
+            r.fulfill(status=200, content_type="text/javascript", body=STUB, headers={"Access-Control-Allow-Origin": "*"})
+        espera(pg, "!!window.__config", timeout=15000)
+
+    return ctx, pg, solta_sdk
+
+
+def abertura_sem_piscar(b, url):
+    """O que o inicio.js resolve antes da primeira pintura, enquanto o SDK nao chega."""
+    # tema escuro salvo: escuro desde o primeiro quadro, sem passar pelo claro
+    ctx, pg, solta_sdk = abre_com_sdk_preso(b, url, "try { localStorage.setItem('luxus-tema', 'escuro') } catch (e) {}")
+    antes = pg.evaluate("window.__quadros")
+    solta_sdk()
+    pg.wait_for_timeout(300)
+    todos = pg.evaluate("window.__quadros")
+    checa(antes and not antes[0]["appRodou"] and all(q["tema"] == "dark" and q["fundo"] == "rgb(23, 17, 15)" for q in todos),
+          "tema escuro salvo: escuro desde o primeiro quadro, antes do app.js (%d quadros antes do SDK)" % len(antes))
+    checa(pg.get_attribute('meta[name="theme-color"]', "content") == "#17110F", "tema escuro salvo: barra do navegador escura")
+    ctx.close()
+
+    # ja logada: o login nao aparece nem por um quadro, o app entra direto
+    ctx, pg, solta_sdk = abre_com_sdk_preso(b, url, "try { localStorage.setItem('luxus-sessao', '1') } catch (e) {} window.__usuariaSalva = %s;" % USUARIA)
+    antes = pg.evaluate("window.__quadros")
+    solta_sdk()
+    espera(pg, "!document.getElementById('appWrapper').hidden")
+    pg.wait_for_timeout(300)
+    # so vale ate os 3,5 s da garantia do inicio.js (no WebKit do conteiner o SDK pode demorar mais que isso)
+    todos = [q for q in pg.evaluate("window.__quadros") if q["t"] < 3400 or q["app"]]
+    checa(antes and not antes[0]["appRodou"] and not any(q["login"] for q in todos) and todos[-1]["app"],
+          "ja logada: o login nao aparece nem antes nem depois do SDK, o app entra direto (%d amostras)" % len(todos))
+    checa(not pg.evaluate("document.documentElement.classList.contains('retomando')"), "ja logada: a marca de espera sai quando o Firebase responde")
+    pg.click("#btnConfig")
+    pg.click("[data-action='sair']")
+    pg.wait_for_timeout(400)
+    checa(pg.evaluate("localStorage.getItem('luxus-sessao')") is None and pg.is_visible("#loginScreen"), "sair apaga a marca de sessao")
+    ctx.close()
+
+    # marca de sessao que nao vale mais (sessao vencida): login espera o Firebase e aparece
+    ctx, pg, solta_sdk = abre_com_sdk_preso(b, url, "try { localStorage.setItem('luxus-sessao', '1') } catch (e) {}")
+    antes = pg.evaluate("window.__quadros")
+    solta_sdk()
+    chega(pg, "getComputedStyle(document.getElementById('loginScreen')).display !== 'none' && localStorage.getItem('luxus-sessao') === null",
+          "sessao vencida: o login aparece quando o Firebase responde e a marca sai")
+    checa(antes and not any(q["login"] for q in antes if q["t"] < 3400), "sessao vencida: antes da resposta o login nao pisca")
+    ctx.close()
+
+    # o Firebase nunca responde: o login aparece sozinho, ninguem fica diante de tela vazia
+    ctx = contexto(b, url)
+    ctx.route("**/firebasejs/**", lambda r: r.abort())
+    ctx.add_init_script("try { localStorage.setItem('luxus-sessao', '1') } catch (e) {}")
+    pg = ctx.new_page()
+    pg.goto(url, wait_until="commit")
+    pg.wait_for_timeout(1500)
+    escondido = pg.evaluate("getComputedStyle(document.getElementById('loginScreen')).display") == "none"
+    chega(pg, "getComputedStyle(document.getElementById('loginScreen')).display !== 'none'",
+          "sem resposta do Firebase: o login aparece sozinho depois de 3,5 s", timeout=8000)
+    checa(escondido, "sem resposta do Firebase: antes dos 3,5 s o login espera")
+    ctx.close()
+
+
 def movimento_reduzido(b, url, saida):
     # Android com "remover animacoes" ou economia de bateria, e iPhone com
     # "reduzir movimento": tudo parado de proposito, e a tela explica o porque
@@ -739,6 +841,7 @@ def roda(url, saida_base, motores):
             cod, pedido = fluxo_principal(b, url, saida)
             outras_larguras(b, url, saida)
             anuncio_seguido(b, url)
+            abertura_sem_piscar(b, url)
             movimento_reduzido(b, url, saida)
             b.close()
             extra[motor] = {"codigo": cod.group(1) if cod else None, "pedido": pedido}

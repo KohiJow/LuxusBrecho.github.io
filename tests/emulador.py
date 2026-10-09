@@ -12,7 +12,8 @@ Percorre, em cada motor (WebKit com perfil de iPhone 13 e Chromium com perfil
 de Pixel 7): conta inexistente, senha errada, recuperacao de senha (com e sem
 conta), login, anuncio com foto (products), reserva e venda (events e sales),
 venda na loja, fechamento de caixa, remocao, recarregar a pagina continuando
-logada, sair e entrar com outra vendedora que nao ve nada da primeira.
+logada (sem a tela de login aparecer antes do app), sair e entrar com outra
+vendedora que nao ve nada da primeira.
 
 Uso (Java 21 e a CLI do Firebase, sem login; o projeto demo-luxus e so local):
   firebase emulators:exec --only auth,firestore --project demo-luxus "python3 tests/emulador.py"
@@ -205,7 +206,12 @@ def fluxo(b, p, url):
     ctx.add_init_script("window.__aberturas = []; window.open = u => { window.__aberturas.push(String(u)); return null; };"
                         "window.__avisos = []; document.addEventListener('DOMContentLoaded', () => new MutationObserver(() => {"
                         " const t = document.getElementById('toast'); if (t.classList.contains('on')) window.__avisos.push(t.textContent); })"
-                        ".observe(document.getElementById('toast'), {attributes: true, childList: true}));")
+                        ".observe(document.getElementById('toast'), {attributes: true, childList: true}));"
+                        # o login chegou a aparecer antes do app? (so ate os 3,5 s da garantia do inicio.js)
+                        "window.__loginVisto = false; (function f() { const l = document.getElementById('loginScreen'),"
+                        " a = document.getElementById('appWrapper'); if (a && !a.hidden) return;"
+                        " if (l && !l.hidden && getComputedStyle(l).display !== 'none' && performance.now() < 3400) window.__loginVisto = true;"
+                        " if (performance.now() < 15000) setTimeout(f, 30); })();")
     pg = ctx.new_page()
     if os.environ.get("DEPURA"):
         pg.set_default_timeout(120000)
@@ -335,6 +341,7 @@ def fluxo(b, p, url):
     pg.reload()
     checa(espera(pg, "!document.getElementById('appWrapper').hidden && document.getElementById('loggedEmail').textContent === '%s'" % ANA[0]),
           "recarregar a pagina mantem a sessao")
+    checa(pg.evaluate("window.__loginVisto") is False, "recarregar logada: a tela de login nao aparece antes do app")
     estado["recarregando"] = False
     pg.click("#tabHistorico")
     checa(espera(pg, "document.querySelectorAll('#histList .hist-item').length === 1 && document.querySelector('#histList .hist-status').textContent.includes('Vendido')"),
@@ -345,6 +352,7 @@ def fluxo(b, p, url):
     pg.click("#btnConfig")
     pg.click("[data-action='sair']")
     checa(espera(pg, "!document.getElementById('loginScreen').hidden"), "sair volta pro login")
+    checa(pg.evaluate("localStorage.getItem('luxus-sessao')") is None, "sair apaga a marca de sessao aberta")
     entra(pg, *BIA)
     checa(espera(pg, "document.getElementById('loggedEmail').textContent === '%s'" % BIA[0]), "segunda vendedora entra")
     pg.click("#tabHistorico")

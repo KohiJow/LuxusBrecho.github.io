@@ -158,7 +158,19 @@ import {
 
   /* ── 3. Login ─────────────────────────────────────────────────────── */
 
+  // Marca de sessão aberta, lida pelo inicio.js na próxima abertura para não
+  // mostrar o login a quem já está logada. Só diz "tem sessão", nada da conta.
+  const SESSAO_KEY = 'luxus-sessao';
+  function marcarSessao(aberta) {
+    try {
+      if (aberta) localStorage.setItem(SESSAO_KEY, '1');
+      else localStorage.removeItem(SESSAO_KEY);
+    } catch (e) { /* sem storage, o login só aparece por um instante */ }
+    document.documentElement.classList.remove('retomando');
+  }
+
   onAuthStateChanged(auth, user => {
+    marcarSessao(!!user);
     if (user) {
       uid = user.uid;
       emailLogado = user.email || '';
@@ -653,8 +665,25 @@ import {
     const card = $('resultCard');
     if (!card.classList.contains('visible')) {
       card.classList.add('visible');
-      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+      setTimeout(() => rolarAteCartao(card), 80);
     }
+  }
+
+  // Traz o cartão para a vista logo abaixo do cabeçalho grudado. Não usa
+  // scrollIntoView: ele mede o cartão ainda deslocado pela animação de entrada
+  // (uns 26px para baixo), rola demais e o topo do cartão, com o "salvo no
+  // histórico", acabava atrás do cabeçalho. offsetTop é a posição sem transform.
+  function rolarAteCartao(el) {
+    let topo = 0;
+    for (let n = el; n; n = n.offsetParent) topo += n.offsetTop;
+    const cabecalho = document.querySelector('.header');
+    const folga = cabecalho ? cabecalho.offsetHeight : 0;
+    const alt = el.offsetHeight, vh = window.innerHeight, y = window.scrollY;
+    if (topo - y >= folga && topo + alt - y <= vh) return;   // já está inteiro na tela
+    // cabe abaixo do cabeçalho: alinha o pé com o fim da tela; não cabe: o topo logo abaixo dele
+    const alvo = alt <= vh - folga ? topo + alt - vh : topo - folga;
+    const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: Math.max(0, alvo), behavior: suave ? 'smooth' : 'auto' });
   }
 
   function copiar() {
@@ -1076,6 +1105,8 @@ import {
     ligarEtiquetas();
   }
 
+  // o inicio.js já pôs o tema salvo antes da primeira pintura; aqui ficam os
+  // ícones do botão e o rótulo, que dependem dele
   let temaSalvo = null;
   try { temaSalvo = localStorage.getItem(TEMA_KEY); } catch (e) { /* sem storage, fica o claro */ }
   aplicarTema(temaSalvo === 'escuro');

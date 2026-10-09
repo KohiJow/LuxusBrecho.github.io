@@ -109,7 +109,15 @@
 [hidden] { display: none !important; }
 .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .fora-da-tela { position: fixed; left: -9999px; top: 0; opacity: 0; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+/* scroll-padding-top: o campo que ganha foco depois de um erro (preço,
+   telefone) é rolado pelo navegador até logo abaixo do cabeçalho grudado, e
+   não para baixo dele. O cartão do anúncio é rolado pelo app.js, que mede o
+   cabeçalho de verdade */
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(104px + env(safe-area-inset-top, 0px));
+}
 /* anel de foco só pra quem navega pelo teclado; o toque não mostra.
    Os campos de texto já têm o próprio brilho no :focus e ficam de fora. */
 :focus-visible { outline: 3px solid var(--pink-ink); outline-offset: 3px; }
@@ -259,6 +267,9 @@ button { font: inherit; }
   padding: calc(28px + env(safe-area-inset-top, 0)) 20px calc(84px + env(safe-area-inset-bottom, 0));
   background: var(--bg);
 }
+/* quem já está logada (inicio.js põe .retomando): o login fica fora enquanto o
+   Firebase confirma a sessão, e o app entra direto, sem o login cortado no meio */
+.retomando .login-screen { display: none; }
 .deco { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .blob {
   position: absolute;
@@ -1320,8 +1331,9 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 }
 .modal-overlay.on .modal { transform: translateY(0); }
 /* com o modal aberto a tela de trás fica inerte e parada: o brilho dos
-   botões e o pulso das bolinhas não precisam rodar atrás do véu */
-#appMain[inert] *, #appMain[inert] *::before, #appMain[inert] *::after { animation-play-state: paused !important; }
+   botões e o pulso das bolinhas não precisam rodar atrás do véu. A onda do
+   toque que abriu o modal fica de fora: parada, ela ficava congelada no botão */
+#appMain[inert] *:not(.ripple), #appMain[inert] *::before, #appMain[inert] *::after { animation-play-state: paused !important; }
 .modal::before {
   content: '';
   position: absolute;

@@ -11,6 +11,7 @@
 //   __docs       documentos que a consulta de produtos devolve
 //   __falhaDb    se verdadeiro, a consulta de produtos falha com permission-denied
 //   __authCb     callback do onAuthStateChanged, pra "entrar" sem senha
+//   __usuariaSalva  se existir, o app abre ja logada com ela (sessao salva)
 //   __escritas   tudo que o app tentou gravar, pra conferir o esquema
 //   __aberturas  URLs que o app mandou pro window.open (WhatsApp), sem abrir nada
 const w = window;
@@ -30,7 +31,7 @@ export const indexedDBLocalPersistence = { tipo: 'indexedDB' };
 export const browserLocalPersistence = { tipo: 'local' };
 export function initializeAuth(app, opcoes) { w.__opcoesAuth = opcoes; return { app }; }
 export function connectAuthEmulator() { w.__emuladorLigado = true; }
-export function onAuthStateChanged(auth, cb) { w.__authCb = cb; setTimeout(() => cb(null), 0); return () => {}; }
+export function onAuthStateChanged(auth, cb) { w.__authCb = cb; setTimeout(() => cb(w.__usuariaSalva || null), 0); return () => {}; }
 export async function signInWithEmailAndPassword() { throw { code: w.__erroLogin || 'auth/invalid-credential' }; }
 export async function sendPasswordResetEmail() { anota({ op: 'reset' }); if (w.__erroReset) throw { code: w.__erroReset }; }
 export async function signOut() { if (w.__authCb) w.__authCb(null); }
