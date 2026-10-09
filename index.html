@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <!-- Script só daqui e da pasta do Firebase no CDN, nada inline: os botões usam data-action (app.js).
+       O SDK é o modular, montado sem o login por popup: por isso apis.google.com não precisa entrar.
        Estilo só daqui e do Google Fonts: nenhum style= no HTML, e o JS só mexe em classe e CSSOM.
        Conexão só com Auth e Firestore (o app não usa Realtime Database, então firebaseio.com fica de fora).
        frame-ancestors não funciona em <meta>, só em cabeçalho HTTP, que o GitHub Pages não deixa configurar. -->
@@ -70,7 +71,7 @@
     <form class="login-card" id="loginForm" novalidate>
       <div class="field">
         <label for="loginEmail">Email</label>
-        <input type="email" id="loginEmail" placeholder="voce@email.com"
+        <input type="email" id="loginEmail" placeholder="voce@example.com"
                autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" enterkeyhint="next">
       </div>
       <div class="field">
@@ -139,6 +140,12 @@
       <div class="field">
         <label for="meuTel">Seu WhatsApp, para os alertas de venda</label>
         <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric" autocomplete="tel" maxlength="20">
+      </div>
+
+      <!-- só aparece com "reduzir movimento" ligado (style.css): explica por que nada se mexe -->
+      <div class="info-badge aviso-movimento" role="note">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>As animações estão desligadas porque o celular pediu menos movimento: <strong>Reduzir movimento</strong> no iPhone, <strong>Remover animações</strong> ou economia de bateria no Android.</p>
       </div>
 
       <button class="btn btn-primary" data-action="salvar-config" type="button">
@@ -329,12 +336,9 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<!-- App -->
-<script src="app.js"></script>
+<!-- O app é módulo e importa o SDK modular do Firebase (www.gstatic.com/firebasejs).
+     Os enfeites rodam antes dele e não dependem do Firebase. -->
 <script src="efeitos.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

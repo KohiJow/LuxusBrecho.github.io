@@ -3,11 +3,17 @@
    das folhas e fotos em polaroid. Regras que continuam valendo:
    1. alvo de toque com pelo menos 44px
    2. contraste de texto 4.5:1 (3:1 só em título grande)
-   3. :hover só dentro de @media (hover: hover), senão o estado gruda no toque
+   3. :hover só dentro de @media (hover: hover) and (pointer: fine), senão o
+      estado gruda no toque (tem Android que diz ter hover e não tem mouse)
    4. animação em transform e opacity sempre que der, e tudo desliga com
       prefers-reduced-motion (bloco no fim do arquivo)
    5. animação de entrada usa fill-mode backwards, pra não travar o transform
-      do :active depois que termina */
+      do :active depois que termina
+   6. texto com background-clip: text (os títulos em gradiente) só anima
+      propriedade de fundo. Filter, clip-path, opacity ou transform no mesmo
+      elemento fazem o texto sumir em versões do Safari
+   7. nada de var() dentro de @keyframes: Safari antigo não anima
+   8. altura de tela em dvh sempre com vh antes, pra iOS anterior ao 15.4 */
 
 /* ─── Tokens ─────────────────────────────────────────────────────────── */
 :root {
@@ -42,7 +48,7 @@
 
   --bubble: #E4F4DC;
   --bubble-ink: #1F2A1C;
-  --glass: rgba(255, 253, 249, .84);
+  --glass: rgba(255, 253, 249, .9);
   --glass-border: rgba(255, 255, 255, .75);
   --header-bg: rgba(243, 239, 231, .86);
 
@@ -88,7 +94,7 @@
   --error: #FF8A80; --error-bg: rgba(255, 138, 128, .12); --error-border: rgba(255, 138, 128, .35);
   --bubble: #1E3326;
   --bubble-ink: #E6F2E0;
-  --glass: rgba(34, 25, 23, .84);
+  --glass: rgba(34, 25, 23, .9);
   --glass-border: rgba(255, 255, 255, .08);
   --header-bg: rgba(23, 17, 15, .86);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .28);
@@ -113,6 +119,7 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
+  min-height: 100vh;
   min-height: 100dvh;
   font-size: var(--base);
   line-height: 1.6;
@@ -174,10 +181,11 @@ button { font: inherit; }
 @keyframes draw     { to { stroke-dashoffset: 0; } }
 @keyframes leafFill { to { fill-opacity: .16; } }
 @keyframes growX    { from { transform: scaleX(0); } }
+/* anel que sai da bolinha dos cartões: escala e opacidade, sem repintar
+   (antes era box-shadow animado, que repinta a cada quadro, para sempre) */
 @keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(232, 69, 139, .32); }
-  70%  { box-shadow: 0 0 0 8px rgba(232, 69, 139, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(232, 69, 139, 0); }
+  0%        { transform: scale(1); opacity: .32; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
 }
 @keyframes shine {
   0%        { transform: translateX(-130%); }
@@ -187,10 +195,11 @@ button { font: inherit; }
   0%, 80%, 100% { transform: translateY(0) scale(.8); opacity: .5; }
   40%           { transform: translateY(-6px) scale(1); opacity: 1; }
 }
-/* foto instantânea revelando: começa lavada e ganha cor */
+/* foto instantânea revelando: começa lavada e ganha cor. Só filtros de cor:
+   blur animado numa foto grande pesa demais no celular simples */
 @keyframes develop {
-  0%   { filter: brightness(1.9) saturate(0) sepia(.5) contrast(.6) blur(3px); }
-  60%  { filter: brightness(1.15) saturate(.7) sepia(.15) contrast(.9) blur(.5px); }
+  0%   { filter: brightness(1.9) saturate(0) sepia(.5) contrast(.6); }
+  60%  { filter: brightness(1.15) saturate(.7) sepia(.15) contrast(.9); }
   100% { filter: none; }
 }
 @keyframes polaDrop {
@@ -198,10 +207,12 @@ button { font: inherit; }
   60%  { opacity: 1; transform: translateY(6px) rotate(0deg) scale(1.01); }
   100% { transform: translateY(0) rotate(-2deg) scale(1); }
 }
-@keyframes polaIn { from { opacity: 0; transform: translateY(40px) rotate(0deg) scale(.8); } }
+/* a inclinação de cada polaroid fica na propriedade rotate (.pola), e as
+   animações mexem só em transform, sem var() no keyframe */
+@keyframes polaIn { from { opacity: 0; transform: translateY(40px) scale(.8); rotate: 0deg; } }
 @keyframes floatA {
-  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
-  50%      { transform: translateY(-10px) rotate(calc(var(--rot, 0deg) + 2deg)); }
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px) rotate(2deg); }
 }
 @keyframes resultIn { from { opacity: 0; transform: translateY(26px) scale(.96); } }
 @keyframes bubbleIn { from { opacity: 0; transform: translateY(12px) scale(.94); } }
@@ -217,21 +228,17 @@ button { font: inherit; }
 @keyframes blob2 { to { transform: translate(-10vmax, 12vmax) scale(.9); } }
 @keyframes blob3 { to { transform: translate(12vmax, -8vmax) scale(1.2); } }
 @keyframes marquee { to { transform: translateX(-50%); } }
-/* letra cursiva sendo escrita da esquerda pra direita */
-@keyframes inkReveal {
-  from { clip-path: inset(-30% 100% -30% -5%); opacity: .2; filter: blur(3px); }
-  to   { clip-path: inset(-30% -10% -30% -5%); opacity: 1; filter: blur(0); }
-}
+/* letra cursiva sendo escrita da esquerda pra direita: o fundo que pinta as
+   letras cresce de 0 até a largura toda. É só propriedade de fundo, então
+   vale com background-clip: text em qualquer Safari (regra 6 lá em cima) */
+@keyframes escrever { from { background-size: 0% 100%; } }
+/* no cabeçalho são duas camadas: o brilho rosa (250%) e a tinta (120%) */
+@keyframes escreverCabecalho { from { background-size: 250% 100%, 0% 100%; } }
 @keyframes sheen {
-  0%, 65% { background-position: 100% 0; }
-  100%    { background-position: 0 0; }
+  0%, 65% { background-position: 100% 0, 0 0; }
+  100%    { background-position: 0 0, 0 0; }
 }
 @keyframes ripple { to { transform: scale(1); opacity: 0; } }
-@keyframes confete {
-  0%   { transform: translate(0, 0) rotate(0); opacity: 1; }
-  35%  { transform: translate(var(--ux), var(--uy)) rotate(calc(var(--rot) * .4)); opacity: 1; }
-  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
-}
 @keyframes okFlash {
   0%   { opacity: 0; transform: scale(.9); }
   15%  { opacity: 1; transform: scale(1); }
@@ -245,6 +252,7 @@ button { font: inherit; }
   isolation: isolate;
   overflow: hidden;
   display: flex;
+  min-height: 100vh;
   min-height: 100dvh;
   align-items: center;
   justify-content: center;
@@ -305,7 +313,7 @@ button { font: inherit; }
   background: var(--paper);
   border-radius: 3px;
   box-shadow: var(--shadow-pola);
-  transform: rotate(var(--rot, 0deg));
+  rotate: var(--rot, 0deg);
   translate: calc(var(--px, 0) * 12px) calc(var(--py, 0) * 12px);
 }
 .pola i { display: block; aspect-ratio: 1; border-radius: 1px; }
@@ -398,13 +406,15 @@ button { font: inherit; }
   font-weight: 400;
   font-size: clamp(3rem, 14vw, 3.9rem);
   line-height: 1.2;
-  background: var(--grad);
+  background-image: var(--grad);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: inkReveal 1.6s var(--ease-out) .35s backwards;
+  animation: escrever 1.6s var(--ease-out) .35s backwards;
 }
-[data-theme="dark"] .login-head h1 { background: linear-gradient(120deg, #F79A80, #F38AB3); -webkit-background-clip: text; background-clip: text; }
+[data-theme="dark"] .login-head h1 { background-image: linear-gradient(120deg, #F79A80, #F38AB3); }
 .login-head p {
   font-family: var(--serif);
   font-style: italic;
@@ -417,8 +427,10 @@ button { font: inherit; }
   border-radius: 26px;
   background: var(--glass);
   border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
-  backdrop-filter: blur(16px) saturate(1.2);
+  /* sem backdrop-filter de propósito: atrás do cartão as manchas de cor se
+     mexem o tempo todo, e o desfoque teria de ser refeito a cada quadro
+     enquanto a tela de login estiver aberta. Elas já são gradientes suaves,
+     então o vidro um pouco mais opaco dá o mesmo resultado */
   box-shadow: var(--shadow-2);
   animation: cardIn .9s var(--ease-spring) .55s backwards;
 }
@@ -469,9 +481,15 @@ button { font: inherit; }
 .btn-link:disabled { opacity: .6; cursor: progress; }
 
 /* ─── Cabeçalho ──────────────────────────────────────────────────────── */
+/* O cabeçalho nunca muda de altura. A folga de cima "encolhe" porque o
+   sticky para 8px acima da tela (top: -8px): rolando, ele sobe junto 8px e
+   então gruda. Ao rolar (classe .scrolled, efeitos.js) só entram sombra,
+   borda e o logo menor por transform. Mudar padding e tamanho do logo, como
+   era antes, empurrava o conteúdo, o navegador corrigia a rolagem e o
+   cabeçalho ficava abrindo e fechando sem parar perto do topo. */
 .header {
   position: sticky;
-  top: 0;
+  top: -8px;
   z-index: 20;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -484,11 +502,9 @@ button { font: inherit; }
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
   backdrop-filter: blur(14px) saturate(1.2);
   border-bottom: 1px solid transparent;
-  transition: padding .35s var(--ease-out), border-color .35s, box-shadow .35s;
+  transition: border-color .35s, box-shadow .35s;
 }
 .header.scrolled {
-  padding-top: calc(var(--sp-2) + env(safe-area-inset-top, 0));
-  padding-bottom: var(--sp-2);
   border-bottom-color: var(--border);
   box-shadow: 0 8px 22px -12px rgba(42, 31, 29, .25);
 }
@@ -503,9 +519,9 @@ button { font: inherit; }
   background: var(--grad);
   box-shadow: 0 8px 18px -8px rgba(168, 45, 99, .6);
   animation: pop .7s var(--ease-spring) backwards;
-  transition: width .35s var(--ease-out), height .35s var(--ease-out);
+  transition: transform .35s var(--ease-out);
 }
-.header.scrolled .logo { width: 40px; height: 40px; }
+.header.scrolled .logo { transform: scale(.87); }
 .logo svg { width: 22px; height: 22px; transform-origin: 50% 18%; animation: swing 2.2s var(--ease-out) .5s backwards; }
 .header-text { grid-area: text; min-width: 0; }
 .header-text h1 {
@@ -517,13 +533,19 @@ button { font: inherit; }
   font-size: clamp(1.6rem, 7.6vw, 2rem);
   line-height: 1.15;
   white-space: nowrap;
-  background: linear-gradient(100deg, var(--ink) 0 40%, var(--pink-ink) 50%, var(--ink) 60% 100%);
-  background-size: 250% 100%;
-  background-position: 100% 0;
+  /* duas camadas pintando as letras: em cima o brilho rosa que passa de
+     tempos em tempos, embaixo a tinta, que cresce na entrada. A tinta tem a
+     ponta esmaecida, que fica pra fora do título quando ela termina */
+  background-image:
+    linear-gradient(100deg, transparent 40%, var(--pink-ink) 50%, transparent 60%),
+    linear-gradient(90deg, var(--ink) 84%, transparent);
+  background-size: 250% 100%, 120% 100%;
+  background-position: 100% 0, 0 0;
+  background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: inkReveal 1.2s var(--ease-out) .15s backwards, sheen 7s ease-in-out 2.5s infinite;
+  animation: escreverCabecalho 1.2s var(--ease-out) .15s backwards, sheen 7s ease-in-out 2.5s infinite;
 }
 .header-text p {
   margin-top: 2px;
@@ -540,6 +562,9 @@ button { font: inherit; }
 .header-actions { grid-area: actions; display: flex; gap: 6px; }
 .icon-btn {
   position: relative;
+  /* isolation junto do overflow hidden: no Safari, filho animado (a onda do
+     toque) escapa dos cantos arredondados sem um contexto de empilhamento */
+  isolation: isolate;
   overflow: hidden;
   width: 44px;
   height: 44px;
@@ -600,6 +625,7 @@ button { font: inherit; }
 .nav-btn {
   position: relative;
   z-index: 1;
+  isolation: isolate;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -654,11 +680,20 @@ button { font: inherit; }
 #cfgCard { animation: slideDown .45s var(--ease-spring) backwards; }
 .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: var(--sp-4); }
 .dot {
+  position: relative;
   flex: none;
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: var(--grad-soft);
+}
+.dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #E8458B;
+  opacity: 0;
   animation: pulse 3.2s ease-out infinite;
 }
 .card-title {
@@ -762,6 +797,8 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 .info-badge strong { color: var(--ink); }
 .badge-sec svg { color: var(--teal); }
 .badge-phys { background: var(--phys-bg); }
+/* aparece só quando o celular pede menos movimento (bloco no fim do arquivo) */
+.aviso-movimento { display: none; margin: 0 0 var(--sp-4); }
 .badge-phys p { color: var(--text-soft); }
 
 /* ─── Botões ─────────────────────────────────────────────────────────── */
@@ -1126,13 +1163,15 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   border: 1px solid var(--border);
   box-shadow: var(--shadow-1);
   transition: transform .35s var(--ease-spring), box-shadow .3s, opacity .5s var(--ease-out);
-  animation: itemIn .45s var(--ease-out) backwards;
 }
-#histList .hist-item:nth-child(2) { animation-delay: .04s; }
-#histList .hist-item:nth-child(3) { animation-delay: .08s; }
-#histList .hist-item:nth-child(4) { animation-delay: .12s; }
-#histList .hist-item:nth-child(5) { animation-delay: .16s; }
-#histList .hist-item:nth-child(6) { animation-delay: .2s; }
+/* a entrada em cascata só quando a lista abre (app.js põe .entrando); numa
+   busca ou troca de status os cartões ficam onde estão, sem piscar */
+#histList.entrando .hist-item { animation: itemIn .45s var(--ease-out) backwards; }
+#histList.entrando .hist-item:nth-child(2) { animation-delay: .04s; }
+#histList.entrando .hist-item:nth-child(3) { animation-delay: .08s; }
+#histList.entrando .hist-item:nth-child(4) { animation-delay: .12s; }
+#histList.entrando .hist-item:nth-child(5) { animation-delay: .16s; }
+#histList.entrando .hist-item:nth-child(6) { animation-delay: .2s; }
 /* do sétimo em diante, entra conforme rola a tela (efeitos.js) */
 .hist-item.rv:not(.in) { opacity: 0; transform: translateY(18px); }
 .hist-item.physical-item { border-left: 4px solid var(--teal-solid); }
@@ -1256,9 +1295,9 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(30, 20, 18, .45);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  /* véu escuro sem backdrop-filter: o desfoque da tela inteira derrubava
+     quadros enquanto o véu aparecia e sumia, medido no Chromium de celular */
+  background: rgba(30, 20, 18, .5);
   opacity: 0;
   visibility: hidden;
   transition: opacity .3s, visibility 0s .3s;
@@ -1267,6 +1306,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
 .modal {
   position: relative;
   width: min(100%, 520px);
+  max-height: 92vh;
   max-height: 92dvh;
   overflow: auto;
   padding: 30px var(--sp-5) calc(var(--sp-5) + env(safe-area-inset-bottom, 0));
@@ -1274,9 +1314,14 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   background: var(--card);
   box-shadow: 0 -14px 40px rgba(0, 0, 0, .2);
   transform: translateY(100%);
-  transition: transform .55s var(--ease-spring);
+  /* a folha que sobe de baixo para sem passar do ponto: com a mola ela
+     subia além do fim e abria um vão entre a folha e a borda da tela */
+  transition: transform .45s var(--ease-out);
 }
 .modal-overlay.on .modal { transform: translateY(0); }
+/* com o modal aberto a tela de trás fica inerte e parada: o brilho dos
+   botões e o pulso das bolinhas não precisam rodar atrás do véu */
+#appMain[inert] *, #appMain[inert] *::before, #appMain[inert] *::after { animation-play-state: paused !important; }
 .modal::before {
   content: '';
   position: absolute;
@@ -1308,17 +1353,29 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   height: 12px;
   margin: -6px 0 0 -4px;
   border-radius: 2px;
-  animation: confete 1.4s cubic-bezier(.2, .6, .4, 1) forwards;
+  will-change: transform, opacity;
 }
 .confete i.redondo { width: 9px; height: 9px; border-radius: 50%; }
 
-/* ─── Troca de tema com círculo (View Transitions) ───────────────────── */
+/* ─── Troca de tema com círculo (efeitos.js) ─────────────────────────── */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-old(root) { z-index: 1; }
 ::view-transition-new(root) { z-index: 2; }
+/* durante a troca nenhuma cor faz transição: a tela nova já entra pronta */
+.sem-transicao *, .sem-transicao *::before, .sem-transicao *::after { transition: none !important; }
+/* sem View Transitions (iOS 17 ou antes): círculo da cor do tema que vai entrar.
+   As cores são as de --bg de cada tema */
+.tema-onda {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+  background: #17110F;
+}
+[data-theme="dark"] .tema-onda { background: #F3EFE7; }
 
 /* ─── Hover, só onde existe mouse ────────────────────────────────────── */
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .icon-btn:hover { border-color: var(--pink-ink); color: var(--pink-ink); transform: rotate(-8deg) scale(1.05); }
   .logo:hover svg { animation: swing 1.6s var(--ease-out); }
   .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -10px rgba(168, 45, 99, .65); }
@@ -1371,5 +1428,6 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
-  .blob, .faixa-trilho, .pola, .hist-empty svg, .dot, .btn-primary::after { animation: none !important; }
+  .blob, .faixa-trilho, .pola, .hist-empty svg, .dot::after, .btn-primary::after { animation: none !important; }
+  .aviso-movimento { display: flex; }
 }

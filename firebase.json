@@ -3,6 +3,7 @@
     "rules": "firestore.rules"
   },
   "emulators": {
+    "auth": { "host": "127.0.0.1", "port": 8576 },
     "firestore": { "host": "127.0.0.1", "port": 8577 },
     "ui": { "enabled": false }
   }

@@ -19,7 +19,22 @@
    Nada fica em window: cada botão declara data-action e o clique chega aqui
    por delegação (seção 13). É isso que permite a CSP do index.html proibir
    script inline. Os enfeites (efeitos.js) entram por window.efeitos, e o app
-   funciona igual sem eles. */
+   funciona igual sem eles.
+
+   Este arquivo é um módulo ES e usa o SDK modular do Firebase direto do CDN.
+   O SDK compat (firebase.auth()) prepara o login por popup e redirecionamento
+   assim que inicia, e no celular isso carrega https://apis.google.com/js/api.js,
+   que a CSP bloqueia. O app só entra por email e senha, então o Auth é montado
+   com initializeAuth sem o resolvedor de popup: nada de apis.google.com. */
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import {
+  initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, connectAuthEmulator,
+  onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import {
+  getFirestore, initializeFirestore, connectFirestoreEmulator, collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
 (function () {
   'use strict';
 
@@ -36,9 +51,35 @@
     messagingSenderId: "1093839654425",
     appId: "1:1093839654425:web:d502e779a0a574b4c4a488"
   };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const auth = firebase.auth();
+
+  // Modo de teste com os emuladores do Firebase (tests/emulador.py). Só liga
+  // com as duas condições juntas: a página servida de 127.0.0.1 ou localhost
+  // E ?emulador=PORTA_DO_AUTH,PORTA_DO_FIRESTORE na URL. No site publicado o
+  // endereço é github.io, então isto devolve null e o app fala só com o
+  // projeto real. No modo de teste o projeto é um "demo-", que não existe no
+  // Google: se algum pedido escapasse do emulador, não acharia dado nenhum.
+  function portasDoEmulador() {
+    const local = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+    if (!local) return null;
+    const m = /^(\d{2,5}),(\d{2,5})$/.exec(new URLSearchParams(location.search).get('emulador') || '');
+    return m ? { auth: Number(m[1]), firestore: Number(m[2]) } : null;
+  }
+  const emulador = portasDoEmulador();
+
+  const app = initializeApp(emulador
+    ? { apiKey: 'chave-de-teste', authDomain: location.hostname, projectId: 'demo-luxus' }
+    : firebaseConfig);
+  // IndexedDB primeiro, como no SDK compat: quem já estava logada continua
+  // logada depois da troca de SDK, sem precisar entrar de novo.
+  const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
+  // No emulador o Firestore vai por long polling: o canal em streaming dele
+  // falha no WebKit do teste ("access control checks") e as gravações
+  // atrasavam. Em produção fica o transporte padrão do SDK.
+  const db = emulador ? initializeFirestore(app, { experimentalForceLongPolling: true }) : getFirestore(app);
+  if (emulador) {
+    connectAuthEmulator(auth, 'http://' + location.hostname + ':' + emulador.auth, { disableWarnings: true });
+    connectFirestoreEmulator(db, location.hostname, emulador.firestore);
+  }
 
   const CFG_KEY = 'brecho_cfg_v2';
   const TEMA_KEY = 'luxus-tema';
@@ -117,7 +158,7 @@
 
   /* ── 3. Login ─────────────────────────────────────────────────────── */
 
-  auth.onAuthStateChanged(user => {
+  onAuthStateChanged(auth, user => {
     if (user) {
       uid = user.uid;
       emailLogado = user.email || '';
@@ -165,7 +206,7 @@
     const btn = $('btnLogin');
     btn.disabled = true; btn.textContent = 'Entrando…';
     try {
-      await auth.signInWithEmailAndPassword(email, senha);
+      await signInWithEmailAndPassword(auth, email, senha);
       $('loginSenha').value = '';
     } catch (e) {
       avisoLogin(MSG_LOGIN[e && e.code] || 'Email ou senha incorretos.', 'erro');
@@ -185,7 +226,7 @@
     const btn = $('btnEsqueci');
     btn.disabled = true;
     try {
-      await auth.sendPasswordResetEmail(email);
+      await sendPasswordResetEmail(auth, email);
     } catch (e) {
       const c = e && e.code;
       // email sem conta recebe a mesma resposta do email com conta
@@ -202,7 +243,7 @@
   function sair() {
     novoAnuncio();
     $('loginSenha').value = '';
-    auth.signOut().catch(() => toast('Não deu pra sair agora. Tente de novo.'));
+    signOut(auth).catch(() => toast('Não deu pra sair agora. Tente de novo.'));
   }
 
   /* ── 4. Configurações da loja ─────────────────────────────────────── */
@@ -234,7 +275,7 @@
 
   /* ── 5. Banco: produtos, eventos e vendas ─────────────────────────── */
 
-  const col = nome => db.collection(nome);
+  const col = nome => collection(db, nome);
 
   // Só o filtro pela dona, sem orderBy: assim não depende de índice composto
   // (sem o índice a consulta falharia e o histórico sumiria sem aviso). A
@@ -243,7 +284,7 @@
     bancoPronto = false; erroBanco = '';
     if (abaAtual === 'historico') renderizarHistorico();
     try {
-      const snap = await col('products').where('brecoOwner', '==', uid).get();
+      const snap = await getDocs(query(col('products'), where('brecoOwner', '==', uid)));
       produtos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       produtos.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
     } catch (e) {
@@ -253,7 +294,7 @@
     }
     bancoPronto = true;
     atualizarBadge();
-    if (abaAtual === 'historico') renderizarHistorico();
+    if (abaAtual === 'historico') renderizarHistorico(true);
   }
 
   // O produto entra na lista antes de ir pro banco (id nulo até salvar), pra
@@ -261,16 +302,18 @@
   async function salvarProduto(produto) {
     const dados = { ...produto };
     delete dados.id;
-    const ref = await col('products').add(dados);
+    const ref = await addDoc(col('products'), dados);
     produto.id = ref.id;
   }
 
+  const produtoRef = id => doc(db, 'products', id);
+
   function registrarEvento(evento) {
-    col('events').add(evento).catch(() => toast('O registro da mudança não foi salvo.', 3000));
+    addDoc(col('events'), evento).catch(() => toast('O registro da mudança não foi salvo.', 3000));
   }
 
   function registrarVenda(venda) {
-    col('sales').add(venda).catch(() => toast('O registro da venda não foi salvo.', 3000));
+    addDoc(col('sales'), venda).catch(() => toast('O registro da venda não foi salvo.', 3000));
   }
 
   /* ── 6. Tema e abas ───────────────────────────────────────────────── */
@@ -309,7 +352,7 @@
     // só a aba ativa entra no Tab; a outra se alcança pelas setas
     $('tabAnuncio').tabIndex = anuncio ? 0 : -1;
     $('tabHistorico').tabIndex = anuncio ? -1 : 0;
-    if (!anuncio) renderizarHistorico();
+    if (!anuncio) renderizarHistorico(true);
   }
 
   /* ── 7. Foto ──────────────────────────────────────────────────────── */
@@ -349,10 +392,15 @@
     return c.toDataURL('image/jpeg', 0.75);
   }
 
-  function usarFoto(dataUrl) {
+  async function usarFoto(dataUrl) {
     foto64 = dataUrl;
     const prev = $('preview');
     prev.src = foto64;
+    // A polaroid só entra com a foto já decodificada. Sem isso a animação
+    // começa com a moldura vazia e a foto pipoca no meio, e no celular simples
+    // a decodificação disputa o mesmo quadro com a animação.
+    if (prev.decode) await prev.decode().catch(() => {});
+    if (foto64 !== dataUrl) return;  // removida ou trocada enquanto decodificava
     prev.hidden = false;
     $('photoBtns').hidden = true;
     $('previewZone').hidden = false;
@@ -595,7 +643,9 @@
   };
 
   function mostrarResultado(link, situacao) {
-    $('msgResult').textContent = mensagem;
+    // o mesmo anúncio passa aqui duas vezes (salvando e salvo): reescrever o
+    // texto igual faria o efeitos.js achar que é anúncio novo e animar de novo
+    if ($('msgResult').textContent !== mensagem) $('msgResult').textContent = mensagem;
     $('linkTxt').textContent = link.replace('https://', '');
     $('resultStatus').textContent = TEXTO_RESULTADO[situacao];
     $('resultCard').classList.toggle('falhou', situacao === 'falhou');
@@ -691,23 +741,49 @@
     return html`<div class="hist-empty">${CABIDE_VAZIO}<p>${titulo}</p><small>${dica}</small>${extra || ''}</div>`;
   }
 
-  function renderizarHistorico() {
+  // Cada cartão do histórico é montado uma vez e reaproveitado enquanto a peça
+  // não muda (id, status, hora da venda). Antes a lista inteira era refeita a
+  // cada letra da busca e a cada "Reservar": todos os cartões repetiam a
+  // animação de entrada (a lista piscava) e as miniaturas eram decodificadas
+  // de novo. Agora só entra nó novo para a peça que mudou.
+  const cartoes = new Map(); // produto -> { versao, el }
+  let estadoDaLista = '';    // marcação do esqueleto/vazio/erro que está na tela
+
+  function mostrarNaLista(lista, marcacao) {
+    if (estadoDaLista === marcacao) return;   // a mesma mensagem não reanima
+    estadoDaLista = marcacao;
+    lista.innerHTML = marcacao;
+  }
+
+  function cartaoReaproveitado(p) {
+    const versao = [p.id, p.status, p.soldAt].join('|');
+    const antigo = cartoes.get(p);
+    if (antigo && antigo.versao === versao) return antigo;
+    const molde = document.createElement('template');
+    molde.innerHTML = cartaoDoHistorico(p);
+    return { versao, el: molde.content.firstElementChild };
+  }
+
+  // entrando: a aba acabou de abrir ou os dados acabaram de chegar, e só aí
+  // os cartões fazem a animação de entrada (classe .entrando no style.css)
+  function renderizarHistorico(entrando) {
     const lista = $('histList');
     setNum('cntDisp', produtos.filter(p => p.status === DISPONIVEL).length);
     setNum('cntRes', produtos.filter(p => p.status === RESERVADO).length);
     setNum('cntVend', produtos.filter(p => p.status === VENDIDO && ehHoje(p.soldAt)).length);
+    lista.classList.toggle('entrando', entrando === true);
 
     if (!bancoPronto) {
-      lista.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+      mostrarNaLista(lista, '<div class="skel"></div><div class="skel"></div><div class="skel"></div>');
       return;
     }
     if (erroBanco) {
-      lista.innerHTML = String(vazio('Não deu pra carregar o histórico', 'Motivo: ' + erroBanco,
-        html`<button class="btn btn-ghost btn-sm" type="button" data-action="recarregar">Tentar de novo</button>`));
+      mostrarNaLista(lista, String(vazio('Não deu pra carregar o histórico', 'Motivo: ' + erroBanco,
+        html`<button class="btn btn-ghost btn-sm" type="button" data-action="recarregar">Tentar de novo</button>`)));
       return;
     }
     if (!produtos.length) {
-      lista.innerHTML = String(vazio('Nenhum produto ainda', 'Gere um anúncio na aba Anunciar'));
+      mostrarNaLista(lista, String(vazio('Nenhum produto ainda', 'Gere um anúncio na aba Anunciar')));
       return;
     }
 
@@ -726,10 +802,26 @@
     });
 
     if (!ordenados.length) {
-      lista.innerHTML = String(vazio('Nenhuma peça encontrada', 'Confira o código, ele vem no fim da mensagem da cliente'));
+      mostrarNaLista(lista, String(vazio('Nenhuma peça encontrada', 'Confira o código, ele vem no fim da mensagem da cliente')));
       return;
     }
-    lista.innerHTML = ordenados.map(cartaoDoHistorico).join('');
+
+    const nos = ordenados.map(p => {
+      const c = cartaoReaproveitado(p);
+      cartoes.set(p, c);
+      return c.el;
+    });
+    // o que a busca escondeu continua guardado; só sai quem saiu dos produtos
+    if (cartoes.size > produtos.length) {
+      const vivos = new Set(produtos);
+      cartoes.forEach((c, p) => { if (!vivos.has(p)) cartoes.delete(p); });
+    }
+    if (estadoDaLista) { lista.textContent = ''; estadoDaLista = ''; }
+    // tira o que saiu (filtro, peça removida) e põe na ordem mexendo só no
+    // que estiver fora do lugar
+    const ficam = new Set(nos);
+    Array.from(lista.children).forEach(el => { if (!ficam.has(el)) el.remove(); });
+    nos.forEach((el, i) => { if (lista.children[i] !== el) lista.insertBefore(el, lista.children[i] || null); });
   }
 
   function cartaoDoHistorico(p) {
@@ -741,7 +833,7 @@
     const nome = (p.cats || []).map(c => String(c).replace(/^[^\p{L}\p{N}]+\s+/u, '')).join(', ') || 'Produto';
 
     const thumb = fotoValida(p.foto64)
-      ? html`<div class="hist-thumb"><img src="${p.foto64}" alt="" loading="lazy"></div>`
+      ? html`<div class="hist-thumb"><img src="${p.foto64}" alt="" loading="lazy" decoding="async"></div>`
       : html`<div class="hist-thumb hist-thumb-emoji">${p.emoji || '📦'}</div>`;
 
     const botao = (classe, acao, para, texto) =>
@@ -786,7 +878,7 @@
     if (novo === RESERVADO) toast('🔒 Marcado como Reservado.');
     if (novo === VENDIDO) dispararAlertaVenda(p);
     try {
-      await avisarSeDemorar(col('products').doc(id).update({ status: novo, soldAt: p.soldAt }),
+      await avisarSeDemorar(updateDoc(produtoRef(id), { status: novo, soldAt: p.soldAt }),
         'A mudança ainda não foi salva. Confira a internet.');
       registrarEvento({ productId: id, type: 'status_changed', from: antes.status, to: novo,
         by: uid, byEmail: emailLogado, at: Date.now() });
@@ -883,7 +975,7 @@
     renderizarHistorico(); atualizarBadge();
     toast('🗑 Venda removida.');
     try {
-      await col('products').doc(id).delete();
+      await deleteDoc(produtoRef(id));
     } catch (e) {
       produtos.splice(posicao, 0, p);
       renderizarHistorico(); atualizarBadge();
@@ -917,7 +1009,7 @@
 
     vendasHoje.forEach(p => {
       p.cashoutSent = true;
-      col('products').doc(p.id).update({ cashoutSent: true })
+      updateDoc(produtoRef(p.id), { cashoutSent: true })
         .catch(() => { p.cashoutSent = false; toast('Uma venda não foi marcada como fechada. Tente de novo.', 4000); });
     });
 
