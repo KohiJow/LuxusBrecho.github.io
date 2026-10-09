@@ -393,6 +393,8 @@ def fluxo_principal(b, url, saida):
     pg.click("[data-action='sair']")
     pg.wait_for_timeout(400)
     checa(pg.is_visible("#loginScreen") and pg.is_hidden("#appWrapper"), "sair volta pro login")
+    checa(pg.get_attribute("#btnConfig", "aria-expanded") == "false" and pg.get_attribute("#tabAnuncio", "aria-selected") == "true",
+          "sair fecha as configuracoes e volta pra aba anunciar")
     ctx.close()
     return cod, pedido
 

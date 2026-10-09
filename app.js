@@ -131,6 +131,9 @@
       produtos = [];
       bancoPronto = false;
       erroBanco = '';
+      // quem sai pelas configurações não deve encontrá-las abertas na próxima entrada
+      alternarConfig(false);
+      mudarAba('anuncio');
       mostrarTela(false);
     }
   });
