@@ -32,7 +32,7 @@ import {
   onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  getFirestore, initializeFirestore, connectFirestoreEmulator, collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc
+  getFirestore, initializeFirestore, connectFirestoreEmulator, collection, query, where, getDocs, getDoc, addDoc, setDoc, doc, updateDoc, deleteDoc
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 (function () {
@@ -43,6 +43,8 @@ import {
   // A apiKey do Firebase identifica o projeto, não autentica ninguém: ela é
   // pública por desenho em app web. Quem protege os dados são as regras do
   // Firestore (firestore.rules), que só deixam cada vendedora ver o que é dela.
+  // No console do Google Cloud ela deve ficar restrita ao site e às APIs que o
+  // app usa (README, seção Segurança).
   const firebaseConfig = {
     apiKey: "AIzaSyDF-X_HOomeNKoQtOmIN-c9dtTpRyhAmBY",
     authDomain: "brechobase.firebaseapp.com",
@@ -50,6 +52,19 @@ import {
     storageBucket: "brechobase.firebasestorage.app",
     messagingSenderId: "1093839654425",
     appId: "1:1093839654425:web:d502e779a0a574b4c4a488"
+  };
+
+  // App Check com reCAPTCHA v3: o Firestore só atende pedidos que venham do
+  // site de verdade, não de um script com a apiKey copiada. Fica desligado
+  // enquanto siteKey estiver vazia: nada é baixado nem chamado. Para ligar,
+  // a dona registra o site no console (README, seção Segurança), cola a chave
+  // aqui e acrescenta os domínios do reCAPTCHA à CSP do index.html. O módulo
+  // vem do mesmo CDN do SDK e com o mesmo controle de integridade (hash
+  // sha384 do arquivo exato).
+  const APP_CHECK = {
+    siteKey: '',
+    modulo: 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js',
+    integridade: 'sha384-BweVVB390EhngbQdG+iTN69U/q1TzbVfT0hemYHVMAtb/18sLqSBUTCiYPvz/Wtd'
   };
 
   // Modo de teste com os emuladores do Firebase (tests/emulador.py). Só liga
@@ -81,18 +96,46 @@ import {
     connectFirestoreEmulator(db, location.hostname, emulador.firestore);
   }
 
+  // Só com a chave: o módulo entra por uma tag <script type="module"> com
+  // integrity, como os três do index.html (o import() sozinho não confere
+  // hash, e o WebKit ignora o integrity de modulepreload), e o App Check é
+  // montado antes de o app falar com o Auth e o Firestore. Se o módulo não
+  // vier em 4 s ou for bloqueado, o app segue sem ele: a vendedora não pode
+  // ficar presa numa tela vazia por causa disso.
+  function ligarAppCheck() {
+    if (!APP_CHECK.siteKey || emulador) return Promise.resolve();
+    const carrega = new Promise((ok, falha) => {
+      const tag = document.createElement('script');
+      tag.type = 'module';
+      tag.src = APP_CHECK.modulo;
+      tag.integrity = APP_CHECK.integridade;
+      tag.crossOrigin = 'anonymous';
+      tag.onload = () => import(APP_CHECK.modulo).then(m => {
+        m.initializeAppCheck(app, { provider: new m.ReCaptchaV3Provider(APP_CHECK.siteKey), isTokenAutoRefreshEnabled: true });
+      }).then(ok, falha);
+      tag.onerror = falha;
+      document.head.appendChild(tag);
+    });
+    const limite = new Promise(ok => setTimeout(ok, 4000));
+    return Promise.race([carrega, limite]).catch(() => {});
+  }
+
   const CFG_KEY = 'brecho_cfg_v2';
   const TEMA_KEY = 'luxus-tema';
   const DISPONIVEL = 'available', RESERVADO = 'reserved', VENDIDO = 'sold';
   const STATUS_VALIDOS = [DISPONIVEL, RESERVADO, VENDIDO];
   const COMISSAO_PERCENTUAL = 15;
-  // os mesmos limites estão nas regras do Firestore: mudou aqui, muda lá
-  const LIMITE = { nome: 60, tam: 20, obs: 200, descLoja: 120, preco: 99999 };
+  // os mesmos limites estão nas regras do Firestore: mudou aqui, muda lá.
+  // foto é a grande (640px), que vai pra subcoleção; miniatura é a que fica no
+  // documento do produto, pra lista do histórico (em caracteres de base64)
+  const LIMITE = { nome: 60, tam: 20, obs: 200, descLoja: 120, preco: 99999, foto: 300000, miniatura: 16000 };
+  // depois disso o "salvando" vira "aguardando internet", com aviso
+  const ESPERA_BANCO = 10000;
 
   let uid = null, emailLogado = '';
   let produtos = [];
   let bancoPronto = false, erroBanco = '';
-  let foto64 = null;
+  let foto64 = null, miniatura64 = null;
   let mensagem = '';
   let filtroHist = '';
   let temaEscuro = false, configAberta = false, abaAtual = 'anuncio';
@@ -146,14 +189,30 @@ import {
   }
 
   // Sem internet o Firestore deixa a promessa pendurada até a conexão voltar.
-  // O aviso evita a vendedora achar que salvou quando ainda não salvou.
-  function avisarSeDemorar(promessa, texto, ms = 10000) {
+  // O aviso evita a vendedora achar que salvou quando ainda não salvou, e
+  // aoDemorar deixa a tela sair do "salvando" (que senão ficaria preso).
+  function avisarSeDemorar(promessa, texto, aoDemorar) {
     let avisou = false;
-    const timer = setTimeout(() => { avisou = true; toast(texto, 5000); }, ms);
+    const timer = setTimeout(() => {
+      avisou = true;
+      toast(texto, 6000);
+      if (aoDemorar) aoDemorar();
+    }, ESPERA_BANCO);
     return promessa.finally(() => {
       clearTimeout(timer);
       if (avisou) toast('Pronto, sincronizou com o banco.');
     });
+  }
+
+  // botão ocupado enquanto espera algo (busca da foto, compartilhamento):
+  // desabilitado e com o texto do que está acontecendo, até devolver()
+  function ocupar(btn, texto) {
+    if (!btn) return () => {};
+    const alvo = btn.querySelector('span') || btn;
+    const antes = alvo.textContent;
+    btn.disabled = true;
+    alvo.textContent = texto;
+    return () => { btn.disabled = false; alvo.textContent = antes; };
   }
 
   /* ── 3. Login ─────────────────────────────────────────────────────── */
@@ -169,27 +228,49 @@ import {
     document.documentElement.classList.remove('retomando');
   }
 
-  onAuthStateChanged(auth, user => {
-    marcarSessao(!!user);
-    if (user) {
-      uid = user.uid;
-      emailLogado = user.email || '';
-      $('loggedEmail').textContent = emailLogado;
-      mostrarTela(true);
-      carregarConfigSalva();
-      carregarProdutos();
-    } else {
-      uid = null;
-      emailLogado = '';
-      produtos = [];
-      bancoPronto = false;
-      erroBanco = '';
-      // quem sai pelas configurações não deve encontrá-las abertas na próxima entrada
-      alternarConfig(false);
-      mudarAba('anuncio');
-      mostrarTela(false);
-    }
-  });
+  function ligarAuth() {
+    onAuthStateChanged(auth, user => {
+      marcarSessao(!!user);
+      if (user) {
+        uid = user.uid;
+        emailLogado = user.email || '';
+        $('loggedEmail').textContent = emailLogado;
+        mostrarTela(true);
+        carregarConfigSalva();
+        carregarProdutos();
+      } else {
+        limparEstadoLocal();
+        mostrarTela(false);
+      }
+    });
+  }
+
+  // Ao sair (ou quando a sessão deixa de valer) nada da conta fica neste
+  // aparelho: histórico em memória e na tela, email no cabeçalho, busca,
+  // formulário, e as configurações (que têm o WhatsApp da vendedora). Fica só
+  // o tema. Outra vendedora que entrar no mesmo celular começa do zero.
+  function limparEstadoLocal() {
+    uid = null;
+    emailLogado = '';
+    produtos = [];
+    bancoPronto = false;
+    erroBanco = '';
+    filtroHist = '';
+    cartoes.clear();
+    estadoDaLista = '';
+    $('histList').textContent = '';
+    $('histSearch').value = '';
+    $('loggedEmail').textContent = '';
+    ['cntDisp', 'cntRes', 'cntVend'].forEach(id => { $(id).textContent = '0'; });
+    atualizarBadge();
+    CAMPOS_CFG.forEach(id => { $(id).value = ''; });
+    try { localStorage.removeItem(CFG_KEY); } catch (e) { /* sem storage, nada guardado */ }
+    novoAnuncio();
+    fecharModalVF();
+    // quem sai pelas configurações não deve encontrá-las abertas na próxima entrada
+    alternarConfig(false);
+    mudarAba('anuncio');
+  }
 
   function mostrarTela(logado) {
     $('loginScreen').hidden = logado;
@@ -253,8 +334,10 @@ import {
   }
 
   function sair() {
-    novoAnuncio();
+    $('loginEmail').value = '';
     $('loginSenha').value = '';
+    avisoLogin('');
+    // o resto do estado local sai em limparEstadoLocal, quando o Auth confirma
     signOut(auth).catch(() => toast('Não deu pra sair agora. Tente de novo.'));
   }
 
@@ -310,15 +393,47 @@ import {
   }
 
   // O produto entra na lista antes de ir pro banco (id nulo até salvar), pra
-  // tela responder na hora mesmo com internet ruim.
+  // tela responder na hora mesmo com internet ruim. No documento vai só a
+  // miniatura (foto64); a foto grande vai depois, num documento próprio em
+  // products/{id}/fotos/principal, lido só quando a vendedora reenvia o
+  // anúncio. Assim o histórico carrega poucos KB por peça em vez de centenas.
+  // fotoGrande e pendente são só da memória: não vão pro banco.
   async function salvarProduto(produto) {
     const dados = { ...produto };
     delete dados.id;
+    delete dados.fotoGrande;
+    delete dados.pendente;
     const ref = await addDoc(col('products'), dados);
     produto.id = ref.id;
+    if (produto.fotoGrande) {
+      try {
+        await setDoc(fotoRef(ref.id), { foto64: produto.fotoGrande, brecoOwner: uid });
+      } catch (e) {
+        toast('O anúncio foi salvo, mas a foto grande não: ' + textoDoErro(e) + '.', 5000);
+      }
+    }
   }
 
   const produtoRef = id => doc(db, 'products', id);
+  const fotoRef = id => doc(db, 'products', id, 'fotos', 'principal');
+
+  // Foto grande de uma peça do histórico, lida sob demanda: a que está na
+  // memória (acabou de ser gerada), senão a do documento próprio, senão a que
+  // está no produto (anúncios antigos guardavam a foto inteira ali; nos novos
+  // é a miniatura, que serve se a grande não existir). Sem internet, depois
+  // de 8 s vai com o que tiver.
+  async function fotoDoProduto(p) {
+    if (p.fotoGrande) return p.fotoGrande;
+    const local = fotoValida(p.foto64) ? p.foto64 : null;
+    if (!p.id) return local;
+    const limite = new Promise(ok => setTimeout(() => ok(null), 8000));
+    try {
+      const snap = await Promise.race([getDoc(fotoRef(p.id)), limite]);
+      const grande = snap && snap.exists() ? snap.data().foto64 : null;
+      if (fotoValida(grande)) { p.fotoGrande = grande; return grande; }
+    } catch (e) { /* sem permissão ou sem conexão: fica a do produto */ }
+    return local;
+  }
 
   function registrarEvento(evento) {
     addDoc(col('events'), evento).catch(() => toast('O registro da mudança não foi salvo.', 3000));
@@ -370,7 +485,8 @@ import {
   /* ── 7. Foto ──────────────────────────────────────────────────────── */
 
   const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-  const LADO_MAX = 640;
+  const LADO_MAX = 640;       // foto que vai pro WhatsApp e pro documento próprio
+  const LADO_MINIATURA = 128; // miniatura da lista do histórico (fica no produto)
 
   function escolherFoto(e) {
     const input = e.target;
@@ -386,26 +502,38 @@ import {
       const img = new Image();
       // HEIC do iPhone chega aqui e o navegador não abre: antes falhava calado
       img.onerror = () => { mostrarErro('Não consegui abrir essa foto. Se for HEIC, converta pra JPG ou tire pela câmera do app.'); input.value = ''; };
-      img.onload = () => { usarFoto(reduzir(img)); esconderErro(); };
+      img.onload = () => {
+        usarFoto(reduzir(img, LADO_MAX, LIMITE.foto), reduzir(img, LADO_MINIATURA, LIMITE.miniatura));
+        esconderErro();
+      };
       img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
   }
 
-  function reduzir(img) {
+  // JPEG com o lado maior em `lado`. Começa em qualidade 0.75 e, se passar do
+  // limite das regras (em caracteres de base64), reencoda mais comprimido:
+  // foto cheia de detalhe miúdo pode dobrar de tamanho na mesma qualidade.
+  function reduzir(img, lado, limite) {
     let w = img.width, h = img.height;
-    if (w > LADO_MAX || h > LADO_MAX) {
-      if (w > h) { h = Math.round(h * LADO_MAX / w); w = LADO_MAX; }
-      else { w = Math.round(w * LADO_MAX / h); h = LADO_MAX; }
+    if (w > lado || h > lado) {
+      if (w > h) { h = Math.round(h * lado / w); w = lado; }
+      else { w = Math.round(w * lado / h); h = lado; }
     }
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     c.getContext('2d').drawImage(img, 0, 0, w, h);
-    return c.toDataURL('image/jpeg', 0.75);
+    let saida = '';
+    for (const q of [0.75, 0.6, 0.45, 0.3]) {
+      saida = c.toDataURL('image/jpeg', q);
+      if (saida.length <= limite) break;
+    }
+    return saida;
   }
 
-  async function usarFoto(dataUrl) {
+  async function usarFoto(dataUrl, miniatura) {
     foto64 = dataUrl;
+    miniatura64 = miniatura;
     const prev = $('preview');
     prev.src = foto64;
     // A polaroid só entra com a foto já decodificada. Sem isso a animação
@@ -420,6 +548,7 @@ import {
 
   function removerFoto() {
     foto64 = null;
+    miniatura64 = null;
     const prev = $('preview');
     prev.hidden = true;
     prev.removeAttribute('src');
@@ -623,33 +752,38 @@ import {
     const emoji = cats.length ? cats[0].split(' ')[0] : '📦';
     mensagem = montarMensagem(nome, emoji, montarDescricao(cats, estado, tam, obs), precoStr, tam, estLabel, codigo, link);
 
+    // no banco vai a miniatura; a foto grande fica na memória e vai pro
+    // documento próprio depois que o produto nasce (salvarProduto)
     const produto = {
       id: null, ts: Date.now(), emoji, cats, estado, estLabel, tam, obs,
       precoNum: preco, precoStr, link, msg: mensagem,
-      foto64: foto64 || null, prodCod: codigo,
+      foto64: (foto64 && miniatura64) || null, prodCod: codigo,
       brecoNome: nome, brecoOwner: uid, sellerEmail: emailLogado,
-      status: DISPONIVEL, soldAt: null, cashoutSent: false, type: 'online'
+      status: DISPONIVEL, soldAt: null, cashoutSent: false, type: 'online',
+      fotoGrande: foto64 || null, pendente: false
     };
     produtos.unshift(produto);
     atualizarBadge();
     mostrarResultado(link, 'salvando');
 
-    avisarSeDemorar(salvarProduto(produto), 'O anúncio ainda não foi salvo no histórico. Confira a internet.')
-      .then(() => {
-        if (mensagem === produto.msg) mostrarResultado(link, 'salvo');
-        if (abaAtual === 'historico') renderizarHistorico();
-      })
+    const mostrar = situacao => {
+      if (mensagem === produto.msg) mostrarResultado(link, situacao);
+      if (abaAtual === 'historico') renderizarHistorico();
+    };
+    avisarSeDemorar(salvarProduto(produto), 'O anúncio ainda não foi salvo no histórico. Confira a internet.',
+      () => { produto.pendente = true; mostrar('pendente'); })
+      .then(() => { produto.pendente = false; mostrar('salvo'); })
       .catch(e => {
         produtos = produtos.filter(p => p !== produto);
         atualizarBadge();
-        if (mensagem === produto.msg) mostrarResultado(link, 'falhou');
-        if (abaAtual === 'historico') renderizarHistorico();
+        mostrar('falhou');
         toast('O anúncio não foi salvo no histórico: ' + textoDoErro(e) + '.', 5000);
       });
   }
 
   const TEXTO_RESULTADO = {
     salvando: 'Anúncio pronto, salvando no histórico…',
+    pendente: 'Anúncio pronto; o histórico salva quando a internet voltar, se o app ficar aberto',
     salvo: 'Anúncio pronto e salvo no histórico',
     falhou: 'Anúncio pronto, mas não foi salvo no histórico'
   };
@@ -660,7 +794,7 @@ import {
     if ($('msgResult').textContent !== mensagem) $('msgResult').textContent = mensagem;
     $('linkTxt').textContent = link.replace('https://', '');
     $('resultStatus').textContent = TEXTO_RESULTADO[situacao];
-    $('resultCard').classList.toggle('falhou', situacao === 'falhou');
+    $('resultCard').classList.toggle('falhou', situacao === 'falhou' || situacao === 'pendente');
     $('txtShareWpp').textContent = foto64 && navigator.canShare ? 'Compartilhar com foto no WhatsApp' : 'Compartilhar no WhatsApp';
     const card = $('resultCard');
     if (!card.classList.contains('visible')) {
@@ -705,22 +839,43 @@ import {
     el.remove();
   }
 
-  async function compartilharWpp() {
-    if (!mensagem) return;
-    if (foto64 && navigator.share && navigator.canShare) {
+  // Compartilha texto e foto pela folha do celular; sem ela (computador), abre
+  // o WhatsApp Web com o texto. A vendedora sempre fica sabendo o que houve:
+  // compartilhou, cancelou, ou foi só o texto porque a foto não entrou.
+  async function compartilhar(texto, fotoDataUrl) {
+    if (!texto) return;
+    if (fotoDataUrl && navigator.share && navigator.canShare) {
       try {
-        const arquivo = new File([dataUrlParaBlob(foto64)], 'produto.jpg', { type: 'image/jpeg' });
-        const dados = { text: mensagem, files: [arquivo] };
-        if (navigator.canShare(dados)) { await navigator.share(dados); toast('📤 Compartilhado!'); return; }
+        const arquivo = new File([dataUrlParaBlob(fotoDataUrl)], 'produto.jpg', { type: 'image/jpeg' });
+        const dados = { text: texto, files: [arquivo] };
+        if (navigator.canShare(dados)) { await navigator.share(dados); toast('📤 Compartilhado com a foto!'); return; }
       } catch (e) {
-        if (e.name === 'AbortError') return;
+        if (e.name === 'AbortError') { toast('Compartilhamento cancelado.'); return; }
       }
     }
     if (navigator.share) {
-      try { await navigator.share({ text: mensagem }); toast('📤 Compartilhado!'); return; }
-      catch (e) { if (e.name === 'AbortError') return; }
+      try { await navigator.share({ text: texto }); toast(fotoDataUrl ? '📤 Texto compartilhado. A foto, mande em seguida.' : '📤 Compartilhado!', 4000); return; }
+      catch (e) { if (e.name === 'AbortError') { toast('Compartilhamento cancelado.'); return; } }
     }
-    window.open('https://wa.me/?text=' + encodeURIComponent(mensagem), '_blank', 'noopener,noreferrer');
+    toast('Abrindo o WhatsApp com o texto…');
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener,noreferrer');
+  }
+
+  async function compartilharWpp(btn) {
+    const devolver = ocupar(btn, 'Abrindo…');
+    try { await compartilhar(mensagem, foto64); } finally { devolver(); }
+  }
+
+  // Reenviar uma peça do histórico: busca a foto grande sob demanda e abre a
+  // mesma folha de compartilhamento do anúncio recém-gerado.
+  async function reenviar(btn) {
+    const p = produtos.find(x => x.id === btn.dataset.id);
+    if (!p || !p.msg) return;
+    const devolver = ocupar(btn, 'Buscando a foto…');
+    try {
+      const foto = await fotoDoProduto(p);
+      await compartilhar(p.msg, foto);
+    } finally { devolver(); }
   }
 
   function novoAnuncio() {
@@ -785,7 +940,7 @@ import {
   }
 
   function cartaoReaproveitado(p) {
-    const versao = [p.id, p.status, p.soldAt].join('|');
+    const versao = [p.id, p.status, p.soldAt, p.pendente ? 'pendente' : ''].join('|');
     const antigo = cartoes.get(p);
     if (antigo && antigo.versao === versao) return antigo;
     const molde = document.createElement('template');
@@ -869,11 +1024,13 @@ import {
       html`<button class="btn btn-sm ${classe}" type="button" data-action="${acao}" data-id="${p.id}" data-para="${para}">${texto}</button>`;
     let acoes;
     if (!p.id) {
-      acoes = html`<span class="hist-saving" role="status">Salvando no histórico…</span>`;
+      acoes = p.pendente
+        ? html`<span class="hist-saving" role="status">Aguardando internet pra salvar…</span>`
+        : html`<span class="hist-saving" role="status">Salvando no histórico…</span>`;
     } else if (fisica) {
       acoes = botao('btn-cancel', 'remover-venda', '', '🗑 Remover');
     } else if (p.status === DISPONIVEL) {
-      acoes = html`${botao('btn-warn', 'status', RESERVADO, '🔒 Reservar')}${botao('btn-sold-c', 'status', VENDIDO, '✓ Confirmar Venda')}`;
+      acoes = html`${botao('btn-warn', 'status', RESERVADO, '🔒 Reservar')}${botao('btn-sold-c', 'status', VENDIDO, '✓ Confirmar Venda')}${p.msg ? botao('btn-ghost', 'reenviar', '', '📤 Reenviar') : ''}`;
     } else if (p.status === RESERVADO) {
       acoes = html`${botao('btn-cancel', 'status', DISPONIVEL, '✕ Cancelar Reserva')}${botao('btn-sold-c', 'status', VENDIDO, '✓ Confirmar Venda')}`;
     } else {
@@ -975,7 +1132,8 @@ import {
       id: null, ts: agora, emoji: '🏪', cats: [desc], estado: [], estLabel: 'Venda física', tam: '',
       obs: '', precoNum: preco, precoStr, link: '', msg: '',
       foto64: null, brecoNome: nome, brecoOwner: uid, sellerEmail: emailLogado,
-      status: VENDIDO, soldAt: agora, cashoutSent: false, type: 'physical'
+      status: VENDIDO, soldAt: agora, cashoutSent: false, type: 'physical',
+      fotoGrande: null, pendente: false
     };
     produtos.unshift(produto);
     $('vfDesc').value = '';
@@ -985,7 +1143,9 @@ import {
     toast('🏪 Venda física registrada! R$ ' + precoStr);
 
     try {
-      await avisarSeDemorar(salvarProduto(produto), 'A venda ainda não foi salva. Confira a internet.');
+      await avisarSeDemorar(salvarProduto(produto), 'A venda ainda não foi salva. Confira a internet.',
+        () => { produto.pendente = true; renderizarHistorico(); });
+      produto.pendente = false;
       registrarVenda({ productId: produto.id, sellerId: uid, sellerEmail: emailLogado, valor: preco,
         brecoNome: nome, soldAt: agora, cashoutSent: false, type: 'physical' });
       if (abaAtual === 'historico') renderizarHistorico();
@@ -1061,6 +1221,7 @@ import {
     'gerar': gerarAnuncio,
     'copiar': copiar,
     'compartilhar': compartilharWpp,
+    'reenviar': reenviar,
     'novo': novoAnuncio,
     'venda-loja': abrirModalVendaFisica,
     'fechar-caixa': fecharCaixaHoje,
@@ -1113,4 +1274,6 @@ import {
   // versões antigas guardavam uma cópia do histórico que nada lia
   try { localStorage.removeItem('brecho_cache'); } catch (e) { /* nada a limpar */ }
   ligarEventos();
+  // o App Check (se ligado) precisa existir antes do primeiro pedido ao Firebase
+  ligarAppCheck().then(ligarAuth);
 })();

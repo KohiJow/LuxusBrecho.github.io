@@ -6,8 +6,12 @@
        O SDK é o modular, montado sem o login por popup: por isso apis.google.com não precisa entrar.
        Estilo só daqui e do Google Fonts: nenhum style= no HTML, e o JS só mexe em classe e CSSOM.
        Conexão só com Auth e Firestore (o app não usa Realtime Database, então firebaseio.com fica de fora).
-       frame-ancestors não funciona em <meta>, só em cabeçalho HTTP, que o GitHub Pages não deixa configurar. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com/firebasejs/; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com; base-uri 'self'; object-src 'none'; form-action 'self'">
+       Nada em iframe nem em worker. frame-ancestors não funciona em <meta>, só em cabeçalho HTTP,
+       que o GitHub Pages não deixa configurar.
+       Ao ligar o App Check (APP_CHECK em app.js), acrescentar: em script-src https://www.google.com/recaptcha/
+       e https://www.gstatic.com/recaptcha/; em frame-src (no lugar de 'none') https://www.google.com/recaptcha/
+       e https://recaptcha.google.com/recaptcha/; em connect-src https://firebaseappcheck.googleapis.com. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com/firebasejs/; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com; frame-src 'none'; worker-src 'none'; base-uri 'self'; object-src 'none'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
@@ -18,6 +22,15 @@
   <title>Luxus Brechó | Anúncios</title>
   <!-- tema salvo e sessão já aberta, antes da primeira pintura (o app.js só roda depois do SDK) -->
   <script src="inicio.js"></script>
+  <!-- Integridade do SDK (SRI): o import do app.js não confere hash, mas estas tags conferem, e o
+       módulo verificado aqui é o que o import reaproveita (mesma URL, mesma instância). Hash sha384 de
+       cada arquivo exato da versão 10.12.0: se o CDN entregar outro conteúdo, o navegador bloqueia e o
+       app não roda. É <script type="module"> e não <link rel="modulepreload"> porque o WebKit (Safari)
+       ignora o integrity do modulepreload; na tag de script ele confere, como o Chromium.
+       Ao trocar a versão do SDK, recalcular: openssl dgst -sha384 -binary arquivo.js | openssl base64 -A -->
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js" integrity="sha384-wY0ZJNz4V101UNldqXjHz0zuQq2LFWQg9C6MejyUaw58KxejR+Fq3MinHCx/5y77" crossorigin="anonymous"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js" integrity="sha384-zgcbfcVBtrcOc7CwpMfyGnYBfuol1tUBzdw+qfnzk43mD50+D2shQKuddFaWQfsc" crossorigin="anonymous"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js" integrity="sha384-wrbWJmwwo/g58yNujR9u0v2HlcTvuGH1Pb8q0J3RR0EyaqypirmzeoG8+qkopilb" crossorigin="anonymous"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -121,7 +134,7 @@
 
       <div class="field">
         <label for="telefone">Telefone do brechó <span class="req" aria-label="obrigatório">*</span></label>
-        <input type="tel" id="telefone" placeholder="5511999998888" inputmode="numeric" autocomplete="off" maxlength="20">
+        <input type="tel" id="telefone" placeholder="55 11 9xxxx-xxxx" inputmode="numeric" autocomplete="off" maxlength="20">
         <div class="info-badge badge-sec">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <p>Número que recebe as clientes interessadas, com DDI e DDD. <strong>Normalmente é o único campo que muda.</strong></p>
@@ -141,7 +154,7 @@
 
       <div class="field">
         <label for="meuTel">Seu WhatsApp, para os alertas de venda</label>
-        <input type="tel" id="meuTel" placeholder="11999997777" inputmode="numeric" autocomplete="tel" maxlength="20">
+        <input type="tel" id="meuTel" placeholder="11 9xxxx-xxxx" inputmode="numeric" autocomplete="tel" maxlength="20">
       </div>
 
       <!-- só aparece com "reduzir movimento" ligado (style.css): explica por que nada se mexe -->

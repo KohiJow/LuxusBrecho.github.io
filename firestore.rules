@@ -8,6 +8,11 @@ rules_version = '2';
 // do uid logado: recusado. Os limites de tamanho acompanham os do app (LIMITE
 // em app.js e os maxlength do index.html); mudou lá, muda aqui.
 //
+// Fotos: o produto guarda só a miniatura (foto64, até 16 KB); a foto grande
+// vai em products/{id}/fotos/principal (até 300 KB). Publique estas regras
+// logo depois de o site novo estar no ar: o app antigo grava a foto inteira
+// no produto, e estas regras recusam isso.
+//
 // Publicação: Console do Firebase > Firestore > Regras, colar e publicar, ou
 // `firebase deploy --only firestore:rules` com o firebase.json deste repositório.
 // Teste local sem conta: `firebase emulators:exec --only firestore --project demo-luxus "python3 tests/regras.py"`.
@@ -36,11 +41,15 @@ service cloud.firestore {
     function dinheiro(v) { return v is number && v >= 0 && v <= 99999; }
     function statusValido(s) { return s in ['available', 'reserved', 'sold']; }
     function tipoValido(t) { return t in ['online', 'physical']; }
-    // a foto é o JPEG reduzido pelo app (640px, base64), ou nada
-    function foto(v) {
-      return v == null
-        || (v is string && v.size() <= 700000 && v.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'));
+    function jpegBase64(v, max) {
+      return v is string && v.size() <= max && v.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+');
     }
+    // No produto fica só a miniatura (128px), pra lista do histórico; ou nada.
+    // Anúncios antigos têm a foto inteira aqui (até 700 KB): continuam sendo
+    // lidos, mas um produto novo não pode mais nascer assim.
+    function miniatura(v) { return v == null || jpegBase64(v, 16000); }
+    // A foto grande (640px) fica em products/{id}/fotos/principal.
+    function fotoGrande(v) { return jpegBase64(v, 300000); }
     // vendido tem a hora da venda; qualquer outro status não tem
     function soldAtCoerente(d) {
       return (d.soldAt == null || instante(d.soldAt)) && ((d.status == 'sold') == (d.soldAt is int));
@@ -65,7 +74,7 @@ service cloud.firestore {
         && d.precoStr is string && d.precoStr.matches('[0-9]{1,5},[0-9]{2}')
         && d.link is string && (d.link == '' || (d.link.size() <= 600 && d.link.matches('https://wa[.]me/[0-9]{1,15}[?]text=.*')))
         && texto(d.msg, 1500)
-        && foto(d.foto64)
+        && miniatura(d.foto64)
         && (!('prodCod' in d) || (d.prodCod is string && d.prodCod.matches('[A-Z0-9]{6}')))
         && texto(d.brecoNome, 60)
         && d.brecoOwner == uid()
@@ -115,6 +124,20 @@ service cloud.firestore {
         && soldAtCoerente(request.resource.data)
         && request.resource.data.cashoutSent is bool;
       allow delete: if logada() && resource.data.brecoOwner == uid() && resource.data.type == 'physical';
+
+      // Foto grande do anúncio, num documento só dela: o histórico não a
+      // carrega, só o "Reenviar". Nasce uma vez (id fixo 'principal'), debaixo
+      // de um produto que já existe e é da mesma vendedora, e não muda nem
+      // sai. Ler, só a dona.
+      match /fotos/{fotoId} {
+        allow read: if logada() && resource.data.brecoOwner == uid();
+        allow create: if logada() && fotoId == 'principal'
+          && request.resource.data.keys().hasOnly(['foto64', 'brecoOwner'])
+          && request.resource.data.keys().hasAll(['foto64', 'brecoOwner'])
+          && request.resource.data.brecoOwner == uid()
+          && fotoGrande(request.resource.data.foto64)
+          && get(/databases/$(database)/documents/products/$(id)).data.brecoOwner == uid();
+      }
     }
 
     // Eventos e vendas são registro: nascem e ficam. Ninguém edita nem apaga.

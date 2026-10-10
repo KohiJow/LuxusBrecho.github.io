@@ -10,10 +10,14 @@ emuladores, das fontes e do CDN do SDK e bloqueado e derruba o teste.
 
 Percorre, em cada motor (WebKit com perfil de iPhone 13 e Chromium com perfil
 de Pixel 7): conta inexistente, senha errada, recuperacao de senha (com e sem
-conta), login, anuncio com foto (products), reserva e venda (events e sales),
-venda na loja, fechamento de caixa, remocao, recarregar a pagina continuando
-logada (sem a tela de login aparecer antes do app), sair e entrar com outra
-vendedora que nao ve nada da primeira.
+conta), login, anuncio com foto (miniatura em products, foto grande em
+products/ID/fotos/principal), reserva e venda (events e sales), venda na loja,
+fechamento de caixa, remocao, um anuncio no formato antigo (foto inteira no
+produto), recarregar a pagina continuando logada (sem a tela de login aparecer
+antes do app), reenviar lendo a foto grande sob demanda (do documento proprio
+ou do produto antigo), sair limpando tudo e entrar com outra vendedora que
+nao ve nada da primeira. Os modulos do SDK passam pelo SRI do index.html, com
+os hashes de verdade.
 
 Uso (Java 21 e a CLI do Firebase, sem login; o projeto demo-luxus e so local):
   firebase emulators:exec --only auth,firestore --project demo-luxus "python3 tests/emulador.py"
@@ -21,6 +25,7 @@ Opcoes: --motor chromium,webkit (padrao: os dois). Com DEPURA=1 imprime os
 passos, os pedidos ao Firestore e quanto cada gravacao levou pra chegar.
 """
 import argparse
+import base64
 import json
 import os
 import re
@@ -45,6 +50,16 @@ FS = os.environ.get("FIRESTORE_EMULATOR_HOST", "127.0.0.1:8577")
 APARELHO = {"chromium": "Pixel 7", "webkit": "iPhone 13"}
 ANA = ("ana@example.com", "senha-da-ana-123")
 BIA = ("bia@example.com", "senha-da-bia-456")
+JPEG = "data:image/jpeg;base64,"
+LIMITE_MINIATURA = 16000   # o mesmo de LIMITE em app.js e das regras
+# Anuncio no formato antigo: a foto inteira no produto e nenhum documento
+# proprio. E a fixture com bytes a mais no fim (o JPEG termina no marcador de
+# fim, o resto e ignorado), so para passar bem do tamanho de uma miniatura.
+FOTO_ANTIGA = JPEG + base64.b64encode(Path(FOTO).read_bytes() + b"\0" * 40000).decode()
+# Folha de compartilhar de mentira: anota o que o app passou (texto e arquivos)
+FOLHA_DE_COMPARTILHAR = ("window.__compartilhados = []; navigator.canShare = d => true;"
+                         " navigator.share = async d => { window.__compartilhados.push({ text: d.text,"
+                         " arquivos: (d.files || []).map(f => ({ nome: f.name, tipo: f.type, bytes: f.size })) }); };")
 
 erros, falhas, ok = [], [], []
 estado = {"motor": ""}
@@ -61,13 +76,17 @@ def html_de_teste():
     fica identico ao publicado, e isso e conferido aqui mesmo."""
     original = (RAIZ / "index.html").read_text(encoding="utf-8")
     extra = " http://%s http://%s" % (AUTH, FS)
-    novo, n = re.subn(r"(connect-src [^;\"]+)", lambda m: m.group(1) + extra, original)
+    meta = re.search(r'http-equiv="Content-Security-Policy" content="([^"]+)"', original)
+    if not meta:
+        raise SystemExit("nao achei a CSP no index.html")
+    csp_original = meta.group(1)
+    csp_nova, n = re.subn(r"(connect-src [^;]+)", lambda m: m.group(1) + extra, csp_original)
     if n != 1:
         raise SystemExit("nao achei o connect-src da CSP no index.html")
-    csp = lambda t: re.search(r'http-equiv="Content-Security-Policy" content="([^"]+)"', t).group(1)
     tira = lambda t: [d.strip() for d in t.split(";") if not d.strip().startswith("connect-src")]
-    if tira(csp(original)) != tira(csp(novo)):
+    if tira(csp_original) != tira(csp_nova):
         raise SystemExit("a CSP de teste mudou mais do que o connect-src")
+    novo = original[:meta.start(1)] + csp_nova + original[meta.end(1):]
     return novo.encode("utf-8")
 
 
@@ -127,10 +146,13 @@ def codigos_de_senha():
     return [c for c in (r or {}).get("oobCodes", []) if c.get("requestType") == "PASSWORD_RESET"] if st == 200 else []
 
 
+DOCUMENTOS = "http://%s/v1/projects/%s/databases/(default)/documents" % (FS, PROJETO)
+COMO_DONO = {"Authorization": "Bearer owner"}   # o emulador ignora as regras com este token: so pra conferir e preparar
+
+
 def documentos(colecao):
-    """Le pelo emulador como administrador (Bearer owner ignora as regras): so pra conferir."""
-    st, r = rest("GET", "http://%s/v1/projects/%s/databases/(default)/documents/%s?pageSize=300" % (FS, PROJETO, colecao),
-                 cabecalhos={"Authorization": "Bearer owner"})
+    """Le pelo emulador como administrador: so pra conferir. Serve para subcolecoes (products/ID/fotos)."""
+    st, r = rest("GET", "%s/%s?pageSize=300" % (DOCUMENTOS, colecao), cabecalhos=COMO_DONO)
     if st != 200:
         return []
     saida = []
@@ -141,6 +163,42 @@ def documentos(colecao):
         campos["_id"] = d["name"].rsplit("/", 1)[1]
         saida.append(campos)
     return saida
+
+
+def valor_rest(v):
+    if v is None:
+        return {"nullValue": None}
+    if isinstance(v, bool):
+        return {"booleanValue": v}
+    if isinstance(v, int):
+        return {"integerValue": str(v)}
+    if isinstance(v, float):
+        return {"doubleValue": v}
+    if isinstance(v, str):
+        return {"stringValue": v}
+    if isinstance(v, list):
+        return {"arrayValue": {"values": [valor_rest(x) for x in v]}}
+    raise TypeError(type(v))
+
+
+def grava_como_dono(colecao, dados):
+    """Poe um documento no emulador por fora do app (e das regras): usado para o anuncio no formato antigo."""
+    st, r = rest("POST", "%s/%s" % (DOCUMENTOS, colecao), {"fields": {k: valor_rest(v) for k, v in dados.items()}}, cabecalhos=COMO_DONO)
+    if st != 200:
+        raise SystemExit("o emulador nao gravou o documento de apoio: %s %s" % (st, r))
+    return r["name"].rsplit("/", 1)[1]
+
+
+def bytes_da_data_url(data_url):
+    return len(base64.b64decode(data_url.split(",", 1)[1]))
+
+
+def anuncio_antigo(uid, email):
+    return {"ts": int(time.time() * 1000) - 3600000, "emoji": "\U0001F45C", "cats": ["\U0001F45C Bolsa"], "estado": ["✨ Ótimo"],
+            "estLabel": "Ótimo", "tam": "", "obs": "", "precoNum": 70, "precoStr": "70,00",
+            "link": "https://wa.me/5511900000000?text=Oi!%20Tenho%20interesse%20na%20pe%C3%A7a%20ANT234",
+            "msg": "mensagem do anuncio antigo ANT234", "foto64": FOTO_ANTIGA, "prodCod": "ANT234", "brecoNome": "Luxus Brechó",
+            "brecoOwner": uid, "sellerEmail": email, "status": "available", "soldAt": None, "cashoutSent": False, "type": "online"}
 
 
 # ---------- navegador ----------
@@ -203,7 +261,8 @@ def fluxo(b, p, url):
     # projeto e um demo-, entao mesmo um pedido que escapasse nao acharia nada.
     ctx.on("request", lambda r: None if r.url.startswith(permitidos) or r.url.startswith("data:") else fora.append(r.url))
     # os links do WhatsApp abririam outra aba: aqui eles so ficam anotados
-    ctx.add_init_script("window.__aberturas = []; window.open = u => { window.__aberturas.push(String(u)); return null; };"
+    ctx.add_init_script(FOLHA_DE_COMPARTILHAR +
+                        "window.__aberturas = []; window.open = u => { window.__aberturas.push(String(u)); return null; };"
                         "window.__avisos = []; document.addEventListener('DOMContentLoaded', () => new MutationObserver(() => {"
                         " const t = document.getElementById('toast'); if (t.classList.contains('on')) window.__avisos.push(t.textContent); })"
                         ".observe(document.getElementById('toast'), {attributes: true, childList: true}));"
@@ -299,9 +358,25 @@ def fluxo(b, p, url):
     msg = pg.inner_text("#msgResult")
     cod = re.search(r"Código \*?([A-Z0-9]{6})", msg)
     prods = documentos("products")
+    mini = str(prods[0].get("foto64", "")) if prods else ""
     checa(len(prods) == 1 and prods[0].get("brecoOwner") == estado["uid_ana"] and prods[0].get("status") == "available"
-          and str(prods[0].get("foto64", "")).startswith("data:image/jpeg;base64,") and cod and prods[0].get("prodCod") == cod.group(1),
-          "products: o documento gravado tem a dona, a foto e o codigo do anuncio")
+          and mini.startswith(JPEG) and len(mini) <= LIMITE_MINIATURA and cod and prods[0].get("prodCod") == cod.group(1),
+          "products: o documento gravado tem a dona, a miniatura (%d caracteres) e o codigo do anuncio" % len(mini))
+    pasta_fotos = "products/%s/fotos" % prods[0]["_id"] if prods else "products/x/fotos"
+    checa(espera_banco(lambda: len(documentos(pasta_fotos)) == 1), "fotos: a foto grande chegou no documento proprio do produto")
+    fotos = documentos(pasta_fotos)
+    grande = str(fotos[0].get("foto64", "")) if fotos else ""
+    checa(fotos and fotos[0]["_id"] == "principal" and fotos[0].get("brecoOwner") == estado["uid_ana"]
+          and grande.startswith(JPEG) and len(grande) > len(mini) and set(fotos[0]) == {"foto64", "brecoOwner", "_id"},
+          "fotos/principal: so foto64 e a dona, com a foto maior que a miniatura (%d caracteres)" % len(grande))
+    # reenviar logo depois de gerar: a foto esta na memoria, nada e lido do banco
+    pg.click("#tabHistorico")
+    checa(espera(pg, "document.querySelectorAll('#histList [data-action=reenviar]').length === 1"), "reenviar aparece na peca disponivel")
+    pg.click("#histList [data-action='reenviar']")
+    checa(espera(pg, "window.__compartilhados.length === 1"), "reenviar abre a folha de compartilhar")
+    comp = pg.evaluate("window.__compartilhados[0]")
+    checa(comp["text"] == msg and comp["arquivos"] and comp["arquivos"][0]["bytes"] == bytes_da_data_url(grande),
+          "reenviar manda a mensagem e a mesma foto grande que foi pro banco")
 
     marca("reservar e vender")
     # reservar e vender: products atualizado, events e sales criados
@@ -335,6 +410,23 @@ def fluxo(b, p, url):
     checa(len(aberturas) == 2 and all(u.startswith("https://wa.me/5511900000001?text=") for u in aberturas),
           "alerta de venda e fechamento de caixa vao pro WhatsApp da vendedora")
 
+    marca("segundo anuncio e anuncio antigo")
+    # um segundo anuncio, que fica disponivel, e um anuncio no formato antigo
+    # posto direto no banco (a foto inteira no produto, sem documento proprio)
+    pg.click("#tabAnuncio")
+    pg.click("[data-action='novo']")
+    pg.set_input_files("#fotoGaleria", FOTO)
+    espera(pg, "!document.getElementById('previewZone').hidden")
+    pg.fill("#preco", "60")
+    pg.click("#btnGerar")
+    checa(espera(pg, "document.getElementById('resultStatus').textContent === 'Anúncio pronto e salvo no histórico'"), "segundo anuncio salvo")
+    msg2 = pg.inner_text("#msgResult")
+    cod2 = re.search(r"Código \*?([A-Z0-9]{6})", msg2)
+    novo = next((d for d in documentos("products") if d.get("prodCod") == (cod2.group(1) if cod2 else "")), None)
+    checa(novo is not None and espera_banco(lambda: len(documentos("products/%s/fotos" % novo["_id"])) == 1), "segundo anuncio: foto grande no documento proprio")
+    grande2 = documentos("products/%s/fotos" % novo["_id"])[0]["foto64"] if novo else ""
+    grava_como_dono("products", anuncio_antigo(estado["uid_ana"], ANA[0]))
+
     # recarregar: continua logada e le o historico do banco
     marca("recarregar")
     estado["recarregando"] = True
@@ -344,20 +436,41 @@ def fluxo(b, p, url):
     checa(pg.evaluate("window.__loginVisto") is False, "recarregar logada: a tela de login nao aparece antes do app")
     estado["recarregando"] = False
     pg.click("#tabHistorico")
-    checa(espera(pg, "document.querySelectorAll('#histList .hist-item').length === 1 && document.querySelector('#histList .hist-status').textContent.includes('Vendido')"),
-          "depois de recarregar, o historico volta do banco")
+    checa(espera(pg, "document.querySelectorAll('#histList .hist-item').length === 3 && [...document.querySelectorAll('#histList .hist-status')].some(s => s.textContent.includes('Vendido'))"),
+          "depois de recarregar, o historico volta do banco com as tres pecas")
+    # as miniaturas decodificam fora do quadro (decoding=async) e no WebKit sem GPU isso leva um tempo
+    checa(espera(pg, "(() => { const i = [...document.querySelectorAll('#histList .hist-thumb img')]; return i.length === 3 && i.every(x => x.complete && x.naturalWidth > 0); })()"),
+          "as miniaturas das tres pecas (duas novas, uma antiga) aparecem")
+
+    # reenviar depois de recarregar: nada na memoria, a foto grande e lida sob demanda
+    marca("reenviar")
+    pg.click("#histList .hist-item:has-text('%s') [data-action='reenviar']" % (cod2.group(1) if cod2 else "x"))
+    checa(espera(pg, "window.__compartilhados.length === 1"), "reenviar o anuncio novo abre a folha de compartilhar")
+    comp = pg.evaluate("window.__compartilhados[0]")
+    checa(comp["text"] == msg2 and comp["arquivos"] and comp["arquivos"][0]["bytes"] == bytes_da_data_url(grande2),
+          "anuncio novo: a foto grande vem do documento proprio, lida pelas regras")
+    pg.click("#histList .hist-item:has-text('ANT234') [data-action='reenviar']")
+    checa(espera(pg, "window.__compartilhados.length === 2"), "reenviar o anuncio antigo abre a folha de compartilhar")
+    comp = pg.evaluate("window.__compartilhados[1]")
+    checa(comp["text"] == "mensagem do anuncio antigo ANT234" and comp["arquivos"] and comp["arquivos"][0]["bytes"] == bytes_da_data_url(FOTO_ANTIGA),
+          "anuncio antigo (sem documento proprio): a foto que esta no produto e usada")
 
     marca("outra vendedora")
-    # outra vendedora nao ve nada da primeira
+    # outra vendedora nao ve nada da primeira, nem as configuracoes dela
     pg.click("#btnConfig")
     pg.click("[data-action='sair']")
     checa(espera(pg, "!document.getElementById('loginScreen').hidden"), "sair volta pro login")
     checa(pg.evaluate("localStorage.getItem('luxus-sessao')") is None, "sair apaga a marca de sessao aberta")
+    checa(pg.evaluate("localStorage.getItem('brecho_cfg_v2') === null && document.getElementById('loggedEmail').textContent === ''"
+                      " && document.getElementById('histList').children.length === 0 && document.getElementById('telefone').value === ''"),
+          "sair apaga as configuracoes, o email e o historico da tela")
     entra(pg, *BIA)
     checa(espera(pg, "document.getElementById('loggedEmail').textContent === '%s'" % BIA[0]), "segunda vendedora entra")
     pg.click("#tabHistorico")
     checa(espera(pg, "document.getElementById('histList').textContent.includes('Nenhum produto ainda')"),
           "segunda vendedora nao ve os produtos da primeira")
+    checa(pg.evaluate("document.getElementById('telefone').value === '' && document.getElementById('meuTel').value === ''"),
+          "segunda vendedora comeca com as configuracoes vazias")
 
     if os.environ.get("DEPURA"):
         print("banco", json.dumps(resumo_do_banco()), "avisos", pg.evaluate("window.__avisos"), file=sys.stderr)

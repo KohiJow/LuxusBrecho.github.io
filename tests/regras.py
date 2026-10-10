@@ -84,8 +84,14 @@ def req(metodo, caminho, corpo=None, quem=None):
         return e.code, e.read().decode(errors="replace")[:200]
 
 
-def cria(colecao, dados, quem):
-    return req("POST", "/" + colecao, campos(dados), quem)
+def cria(colecao, dados, quem, doc_id=None):
+    return req("POST", "/" + colecao + ("?documentId=" + doc_id if doc_id else ""), campos(dados), quem)
+
+
+def consulta_grupo(colecao, quem):
+    """Consulta de grupo (todas as subcolecoes com esse nome, de qualquer produto)."""
+    q = {"structuredQuery": {"from": [{"collectionId": colecao, "allDescendants": True}]}}
+    return req("POST", ":runQuery", q, quem)
 
 
 def atualiza(colecao, doc_id, dados, quem):
@@ -120,7 +126,7 @@ def recusa(resposta, nome):
     checa(resposta[0] == 403, nome, "status %s %s" % resposta)
 
 
-# exatamente o que o app grava (app.js, gerarAnuncio e registrarVendaFisica)
+# exatamente o que o app grava (app.js, gerarAnuncio e registrarVendaFisica); foto64 e a miniatura
 ONLINE = {
     "ts": AGORA, "emoji": "\U0001F45F", "cats": ["\U0001F45F Calçado"], "estado": ["\u2728 Ótimo"], "estLabel": "Ótimo", "tam": "37",
     "obs": "Melissa azul com cadarço amarelo", "precoNum": 45, "precoStr": "45,00",
@@ -140,6 +146,10 @@ EVENTO = {"productId": "abc", "type": "status_changed", "from": "available", "to
           "by": "uid-ana", "byEmail": "ana@example.com", "at": AGORA}
 VENDA = {"productId": "abc", "sellerId": "uid-ana", "sellerEmail": "ana@example.com", "valor": 45,
          "brecoNome": "Luxus Brechó", "soldAt": AGORA, "cashoutSent": False, "type": "online"}
+# a foto grande que o app grava em products/{id}/fotos/principal (app.js, salvarProduto)
+JPEG = "data:image/jpeg;base64,"
+FOTO_GRANDE = {"foto64": JPEG + "/9j/4AAQ" + "A" * 120000, "brecoOwner": "uid-ana"}
+LIMITE_MINIATURA, LIMITE_FOTO = 16000, 300000   # os mesmos de LIMITE em app.js e das regras
 
 
 def variante(base, **muda):
@@ -164,7 +174,7 @@ def main():
     aceita(cria("products", variante(ONLINE, cats=["\U0001F457 Vestido", "\U0001F455 Camisa", "\U0001F456 Calça", "\U0001F45F Calçado", "\U0001F45C Bolsa", "\U0001F9E5 Casaco", "\U0001F48D Acessório", "\U0001FA71 Blusa", "\U0001FA74 Short"],
                                      estado=["\U0001F3F7\uFE0F Novo c/ etiqueta"], obs="x" * 200, brecoNome="N" * 60, tam="T" * 20), ANA),
            "anuncio nos limites de tamanho do app")
-    aceita(cria("products", variante(ONLINE, foto64="data:image/jpeg;base64," + "A" * 699000), ANA), "foto de quase 700 KB passa")
+    aceita(cria("products", variante(ONLINE, foto64=JPEG + "A" * (LIMITE_MINIATURA - len(JPEG))), ANA), "miniatura no limite (16 KB) passa")
 
     casos_recusados = {
         "dono diferente do uid": variante(ONLINE, brecoOwner="uid-bia"),
@@ -178,7 +188,8 @@ def main():
         "preco como texto": variante(ONLINE, precoNum="45"),
         "precoStr fora do formato": variante(ONLINE, precoStr="<i>45</i>"),
         "foto que nao e imagem": variante(ONLINE, foto64="javascript:alert(1)"),
-        "foto maior que 700 KB": variante(ONLINE, foto64="data:image/jpeg;base64," + "A" * 700001),
+        "miniatura acima de 16 KB": variante(ONLINE, foto64=JPEG + "A" * (LIMITE_MINIATURA - len(JPEG) + 1)),
+        "foto inteira no produto (formato antigo, 100 KB)": variante(ONLINE, foto64=JPEG + "A" * 100000),
         "codigo fora do formato": variante(ONLINE, prodCod="<u>AB</u>"),
         "detalhe acima de 200": variante(ONLINE, obs="x" * 201),
         "nome da loja acima de 60": variante(ONLINE, brecoNome="N" * 61),
@@ -202,7 +213,7 @@ def main():
     aceita(le("products", id_online, ANA), "dona le o proprio produto")
     recusa(le("products", id_online, BIA), "outra vendedora nao le o produto")
     recusa(le("products", id_online, None), "sem login nao le")
-    criados = len([n for n in ok if n.startswith("anuncio") or n.startswith("venda na loja do jeito") or n.startswith("foto de quase")])
+    criados = len([n for n in ok if n.startswith("anuncio") or n.startswith("venda na loja do jeito") or n.startswith("miniatura no limite")])
     r = consulta("products", "brecoOwner", "uid-ana", ANA)
     aceita(r, "consulta filtrada pela dona (a do app) passa")
     devolvidos = sum(1 for x in r[1] if "document" in x) if r[0] == 200 else -1
@@ -222,6 +233,30 @@ def main():
     recusa(atualiza("products", id_online, {"foto64": None}, ANA), "nao altera: foto e imutavel")
     recusa(atualiza("products", id_online, {"status": "reserved", "soldAt": None}, BIA), "outra vendedora nao altera")
     recusa(atualiza("products", id_online, {"cashoutSent": True}, None), "sem login nao altera")
+
+    # --- fotos grandes: products/{id}/fotos/principal ---
+    fotos = "products/" + id_online + "/fotos"
+    recusa(cria(fotos, FOTO_GRANDE, None, "principal"), "sem login nao grava foto")
+    recusa(cria(fotos, variante(FOTO_GRANDE, brecoOwner="uid-bia"), BIA, "principal"), "outra vendedora nao grava foto sob o produto da dona")
+    recusa(cria(fotos, variante(FOTO_GRANDE, brecoOwner="uid-bia"), ANA, "principal"), "nao grava foto: dono diferente do uid")
+    recusa(cria(fotos, FOTO_GRANDE, ANA, "outra"), "nao grava foto: id diferente de principal")
+    recusa(cria(fotos, FOTO_GRANDE, ANA), "nao grava foto: id sorteado em vez de principal")
+    recusa(cria(fotos, variante(FOTO_GRANDE, foto64=JPEG + "A" * (LIMITE_FOTO - len(JPEG) + 1)), ANA, "principal"), "nao grava foto: acima de 300 KB")
+    recusa(cria(fotos, variante(FOTO_GRANDE, foto64="javascript:alert(1)"), ANA, "principal"), "nao grava foto: nao e imagem")
+    recusa(cria(fotos, variante(FOTO_GRANDE, foto64=None), ANA, "principal"), "nao grava foto: vazia")
+    recusa(cria(fotos, variante(FOTO_GRANDE, extra=1), ANA, "principal"), "nao grava foto: campo a mais")
+    recusa(cria(fotos, variante(FOTO_GRANDE, brecoOwner=KeyError), ANA, "principal"), "nao grava foto: campo faltando")
+    recusa(cria("products/nao-existe/fotos", FOTO_GRANDE, ANA, "principal"), "nao grava foto: sob produto que nao existe")
+    aceita(cria(fotos, FOTO_GRANDE, ANA, "principal"), "foto grande do jeito que o app grava (sob o produto da dona, id principal)")
+    recusa(req("PATCH", "/" + fotos + "/principal", campos(FOTO_GRANDE), ANA), "foto grande nao e gravada por cima (set num documento que ja existe)")
+    aceita(cria("products/" + id_fisico + "/fotos", variante(FOTO_GRANDE, foto64=JPEG + "A" * (LIMITE_FOTO - len(JPEG))), ANA, "principal"),
+           "foto grande no limite (300 KB) passa")
+    aceita(le(fotos, "principal", ANA), "dona le a propria foto grande")
+    recusa(le(fotos, "principal", BIA), "outra vendedora nao le a foto grande")
+    recusa(le(fotos, "principal", None), "sem login nao le a foto grande")
+    recusa(consulta_grupo("fotos", ANA), "consulta de grupo nas fotos e recusada")
+    recusa(atualiza(fotos, "principal", {"foto64": JPEG + "A" * 100}, ANA), "foto grande nao se altera")
+    recusa(apaga(fotos, "principal", ANA), "foto grande nao se apaga")
 
     # --- produtos: apagar ---
     recusa(apaga("products", id_fisico, BIA), "outra vendedora nao apaga venda na loja")
@@ -262,7 +297,7 @@ def main():
     # --- resto do banco ---
     recusa(cria("config", {"x": 1}, ANA), "outra colecao: nao grava")
     recusa(consulta("config", None, None, ANA), "outra colecao: nao le")
-    recusa(req("PATCH", "/products/" + id_online + "/sub/x?updateMask.fieldPaths=a", campos({"a": 1}), ANA), "subcolecao: nao grava")
+    recusa(req("PATCH", "/products/" + id_online + "/sub/x?updateMask.fieldPaths=a", campos({"a": 1}), ANA), "outra subcolecao do produto: nao grava")
 
     print(json.dumps({"ok": len(ok), "falhas": falhas}, ensure_ascii=False, indent=1))
     if falhas:

@@ -16,6 +16,7 @@ para tests/saida/<motor> (ignorada pelo git).
 """
 import argparse
 import base64
+import hashlib
 import io
 import json
 import re
@@ -35,11 +36,21 @@ AQUI = Path(__file__).resolve().parent
 RAIZ = AQUI.parent
 FOTO = str(AQUI / "peca-teste.jpg")
 STUB = (AQUI / "stub.js").read_text(encoding="utf-8")
+# O index.html exige o hash sha384 de cada modulo do SDK (SRI). O stub entra no
+# lugar deles, entao a pagina servida aqui leva o hash do stub; a pagina
+# original, com os hashes de verdade, e usada para provar que o SRI bloqueia.
+HASH_STUB = "sha384-" + base64.b64encode(hashlib.sha384(STUB.encode("utf-8")).digest()).decode()
+INDEX_ORIGINAL = (RAIZ / "index.html").read_text(encoding="utf-8")
+INDEX_COM_STUB = re.sub(r'(firebasejs/[^"]+" integrity=")sha384-[A-Za-z0-9+/=]+', lambda m: m.group(1) + HASH_STUB, INDEX_ORIGINAL)
+APP_JS = (RAIZ / "app.js").read_text(encoding="utf-8")
 USUARIA = "{uid:'uid-teste', email:'teste@example.com'}"
 CAMPOS_PRODUTO = {"ts", "emoji", "cats", "estado", "estLabel", "tam", "obs", "precoNum", "precoStr", "link", "msg",
                   "foto64", "prodCod", "brecoNome", "brecoOwner", "sellerEmail", "status", "soldAt", "cashoutSent", "type"}
+LIMITE_MINIATURA, LIMITE_FOTO = 16000, 300000   # os mesmos de LIMITE em app.js e das regras
 # perfil de aparelho de cada motor (nomes da lista de aparelhos do Playwright)
 APARELHO = {"chromium": "Pixel 7", "webkit": "iPhone 13"}
+# a tela de login tambem e conferida nestes, no motor do Safari
+APARELHOS_LOGIN = {"chromium": ["Pixel 7"], "webkit": ["iPhone 13", "iPhone SE"]}
 # O WebKit do Playwright injeta uma folha de estilo pra tirar a captura de tela,
 # e a CSP do app recusa: a mesma mensagem aparece numa pagina vazia com a mesma
 # politica, entao e da ferramenta, nao do app. So e ignorada durante a captura.
@@ -57,11 +68,36 @@ class Silencioso(SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def do_GET(self):
+        # a pagina vai com o hash do stub no lugar dos hashes do SDK; o resto e servido como esta
+        if self.path.split("?")[0] in ("/", "/index.html"):
+            corpo = INDEX_COM_STUB.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(corpo)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(corpo)
+            return
+        super().do_GET()
+
 
 def servir():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), partial(Silencioso, directory=str(RAIZ)))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv, "http://127.0.0.1:%d/" % srv.server_address[1]
+
+
+def bytes_da_data_url(data_url):
+    return len(base64.b64decode(data_url.split(",", 1)[1]))
+
+
+# Folha de compartilhamento de mentira: anota texto e arquivos que o app passou
+# e responde como o teste mandar (window.__shareErro = nome do erro pra falhar).
+FOLHA_DE_COMPARTILHAR = """window.__compartilhados = [];
+    navigator.canShare = d => true;
+    navigator.share = async d => { if (window.__shareErro) { const e = new Error('x'); e.name = window.__shareErro; throw e; }
+      window.__compartilhados.push({ text: d.text, arquivos: (d.files || []).map(f => ({ nome: f.name, tipo: f.type, bytes: f.size })) }); };"""
 
 
 def foto_neutra(largura, altura):
@@ -93,11 +129,13 @@ def foto(pg, caminho, cheia=False):
     captura(pg, caminho, cheia)
 
 
-def prepara(ctx, url):
+def prepara(ctx, url, pedidos=None):
     def rota(r):
         u = r.request.url
+        if pedidos is not None:
+            pedidos.append(u)
         if "/firebasejs/" in u:
-            # o mesmo modulo de mentira responde pelos tres modulos do SDK
+            # o mesmo modulo de mentira responde pelos modulos do SDK
             return r.fulfill(status=200, content_type="text/javascript", body=STUB,
                              headers={"Access-Control-Allow-Origin": "*"})
         if u.startswith(url) or u.startswith("https://fonts.googleapis.com/") or u.startswith("https://fonts.gstatic.com/"):
@@ -123,12 +161,32 @@ def vigia(pg):
     pg.on("console", console)
 
 
-def contexto(b, url, **extra):
+def contexto(b, url, pedidos=None, **extra):
     opcoes = dict(PERFIS[estado["motor"]])
     opcoes.update(extra)
     ctx = b.new_context(**opcoes)
-    prepara(ctx, url)
+    prepara(ctx, url, pedidos)
     return ctx
+
+
+def sem_sobreposicao(pg):
+    """As polaroids do fundo do login nao podem cobrir o titulo, a frase de cima nem a de baixo.
+    Amostra algumas vezes porque elas flutuam (floatA) depois de entrar."""
+    piores = []
+    for _ in range(4):
+        caixas = pg.evaluate("""() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect();
+                return [b.left, b.top, b.right, b.bottom]; };
+            const texto = ['.login-eyebrow', '.login-head h1', '.login-head p'].map(r);
+            const polas = [...document.querySelectorAll('.pola')].map(p => { const b = p.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; });
+            let pior = 0;
+            for (const t of texto) for (const p of polas) {
+              const w = Math.min(t[2], p[2]) - Math.max(t[0], p[0]), h = Math.min(t[3], p[3]) - Math.max(t[1], p[1]);
+              if (w > 0 && h > 0) pior = Math.max(pior, Math.round(Math.min(w, h)));
+            }
+            return pior; }""")
+        piores.append(caixas)
+        pg.wait_for_timeout(350)
+    return max(piores)
 
 
 def tema(pg, escuro):
@@ -245,7 +303,9 @@ def abertura_do_login(pg, saida):
 
 
 def fluxo_principal(b, url, saida):
-    ctx = contexto(b, url)
+    pedidos = []
+    ctx = contexto(b, url, pedidos)
+    ctx.add_init_script(FOLHA_DE_COMPARTILHAR)
     pg = ctx.new_page()
     vigia(pg)
     pg.goto(url)
@@ -257,10 +317,20 @@ def fluxo_principal(b, url, saida):
     checa(pg.evaluate("document.documentElement.getAttribute('data-theme')") is None, "creme e o tema padrao")
     checa(sem_rolagem(pg), "login sem rolagem horizontal")
     checa(folhas_desenhadas(saida / "1-login-claro.png"), "folhas do fundo se desenham a partir do symbol")
+    sobra = sem_sobreposicao(pg)
+    checa(sobra == 0, "%s: nenhuma polaroid cobre o titulo nem as frases do login (sobreposicao de %d px)" % (APARELHO[estado["motor"]], sobra))
     checa(pg.evaluate("window.__opcoesAuth && window.__opcoesAuth.popupRedirectResolver === undefined"),
           "Auth montado sem o resolvedor de popup (nada de apis.google.com)")
     checa(pg.evaluate("window.__config.projectId") == "brechobase" and not pg.evaluate("!!window.__emuladorLigado"),
           "fora de ?emulador=, o app usa o projeto real e nao liga emulador")
+    # SRI: os tres modulos do SDK chegam por tag de script com hash e sem credenciais
+    links = pg.evaluate("""[...document.querySelectorAll('script[type=module][src*="firebasejs"]')].map(l => [l.src, l.integrity, l.crossOrigin])""")
+    checa(len(links) == 3 and all(h.startswith("https://www.gstatic.com/firebasejs/10.12.0/") and i.startswith("sha384-") and c == "anonymous" for h, i, c in links)
+          and {h.rsplit("/", 1)[1] for h, _, _ in links} == {"firebase-app.js", "firebase-auth.js", "firebase-firestore.js"},
+          "os tres modulos do SDK entram por script type=module com integrity sha384 e crossorigin anonymous")
+    checa(not any("app-check" in u for u in pedidos) and pg.evaluate("window.__appCheck") is None,
+          "sem chave, o App Check nao e baixado nem montado")
+    pedidos.clear()
 
     tema(pg, True)
     foto(pg, saida / "2-login-noite.png")
@@ -336,13 +406,33 @@ def fluxo_principal(b, url, saida):
     checa(pg.locator("#histList .hist-thumb-emoji").count() == 1, "foto64 que nao e imagem vira miniatura de emoji")
     foto(pg, saida / "3c-historico-xss.png")
 
-    # historico com fotos de verdade: retrato 480x900 e paisagem 900x480 vindas do banco
-    docs = [doc_produto(1, foto_neutra(480, 900), "available", "RTR234"), doc_produto(2, foto_neutra(900, 480), "available", "PSG567"),
-            doc_produto(3, None, "reserved", "NFT789"), doc_produto(4, foto_neutra(480, 900), "sold", "VND234")]
-    pg.evaluate("docs => { window.__docs = docs; window.__authCb(null); window.__authCb(%s); }" % USUARIA, docs)
+    # historico com fotos de verdade: retrato 480x900 e paisagem 900x480 vindas do banco.
+    # A primeira e um anuncio novo (miniatura no produto, foto grande no documento
+    # proprio); a segunda e um anuncio antigo (foto inteira no produto, sem documento proprio)
+    retrato, paisagem, grande = foto_neutra(480, 900), foto_neutra(900, 480), foto_neutra(640, 640)
+    docs = [doc_produto(1, retrato, "available", "RTR234"), doc_produto(2, paisagem, "available", "PSG567"),
+            doc_produto(3, None, "reserved", "NFT789"), doc_produto(4, retrato, "sold", "VND234")]
+    for d in docs:
+        d["data"]["msg"] = "mensagem da peca " + d["data"]["prodCod"]
+    pg.evaluate("([docs, grande]) => { window.__docs = docs; window.__fotos = {d1: grande}; window.__authCb(null); window.__authCb(%s); }" % USUARIA, [docs, grande])
     pg.wait_for_timeout(500)
     pg.click("#tabHistorico")
     pg.wait_for_timeout(1200)
+    # reenviar: a foto grande vem do documento proprio quando existe, senao a do produto
+    checa(pg.locator("#histList [data-action='reenviar']").count() == 2, "reenviar so nas pecas disponiveis que tem mensagem")
+    pg.click("#histList .hist-item:has-text('RTR234') [data-action='reenviar']")
+    espera(pg, "window.__compartilhados.length === 1")
+    comp = pg.evaluate("window.__compartilhados[0]")
+    checa(comp["text"] == "mensagem da peca RTR234" and comp["arquivos"] and comp["arquivos"][0]["bytes"] == bytes_da_data_url(grande),
+          "reenviar manda a mensagem salva e a foto grande lida do documento proprio (%s)" % json.dumps(comp)[:120])
+    checa(pg.evaluate("window.__leituras") == ["products/d1/fotos/principal"], "a foto grande so e lida ao reenviar, e so a dessa peca")
+    checa("Compartilhado com a foto" in pg.inner_text("#toast"), "reenviar confirma com aviso")
+    checa(not pg.is_disabled("#histList .hist-item:has-text('RTR234') [data-action='reenviar']"), "botao de reenviar volta ao normal")
+    pg.click("#histList .hist-item:has-text('PSG567') [data-action='reenviar']")
+    espera(pg, "window.__compartilhados.length === 2")
+    comp = pg.evaluate("window.__compartilhados[1]")
+    checa(comp["arquivos"] and comp["arquivos"][0]["bytes"] == bytes_da_data_url(paisagem) and pg.evaluate("window.__leituras.length") == 2,
+          "anuncio antigo sem documento proprio: reenviar usa a foto que esta no produto")
     for cod, nome in (("RTR234", "retrato 480x900"), ("PSG567", "paisagem 900x480")):
         caixas = pg.evaluate("""cod => { const item = [...document.querySelectorAll('#histList .hist-item')].find(i => i.textContent.includes(cod));
             const m = item.querySelector('.hist-thumb').getBoundingClientRect(), f = item.querySelector('.hist-thumb img').getBoundingClientRect();
@@ -361,6 +451,7 @@ def fluxo_principal(b, url, saida):
     pg.wait_for_timeout(300)
     checa(pg.locator("#histList .hist-item").count() == 1 and pg.evaluate("document.querySelector('#histList .hist-item').__marca") is not None,
           "busca filtra reaproveitando o cartao que ja estava na tela")
+    checa(pg.evaluate("document.activeElement.id") == "histSearch", "a busca continua com o foco enquanto a lista muda")
     pg.fill("#histSearch", "")
     pg.wait_for_timeout(300)
     checa(pg.evaluate("[...document.querySelectorAll('#histList .hist-item')].every(el => el.__marca)"),
@@ -382,6 +473,8 @@ def fluxo_principal(b, url, saida):
     pg.wait_for_timeout(300)
     checa(pg.get_attribute("#btnConfig", "aria-expanded") == "true" and pg.is_visible("#cfgCard"), "configuracoes abrem")
     checa(pg.is_hidden(".aviso-movimento"), "sem 'reduzir movimento', o aviso de animacoes desligadas fica escondido")
+    dicas = pg.evaluate("[document.getElementById('telefone').placeholder, document.getElementById('meuTel').placeholder]")
+    checa(all(not re.search(r"\d{5}", d) for d in dicas), "os telefones de exemplo sao mascaras, sem numero completo (%s)" % dicas)
     pg.fill("#telefone", "5511900000000")
     pg.fill("#brecoNome", "Luxus Brechó")
     pg.fill("#meuTel", "11900000001")
@@ -484,8 +577,18 @@ def fluxo_principal(b, url, saida):
     checa(len(href) < 260, "link de reserva curto (%d caracteres)" % len(href))
     grav = escritas(pg, "add", "products")
     checa(len(grav) == 1 and set(grav[0]["dados"].keys()) == CAMPOS_PRODUTO, "produto gravado com exatamente os campos das regras")
+    mini = grav[0]["dados"]["foto64"] if grav else ""
     checa(len(grav) == 1 and grav[0]["dados"]["brecoOwner"] == "uid-teste" and grav[0]["dados"]["status"] == "available"
-          and grav[0]["dados"]["foto64"].startswith("data:image/jpeg;base64,"), "produto gravado com o uid da vendedora e a foto")
+          and mini.startswith("data:image/jpeg;base64,") and len(mini) <= LIMITE_MINIATURA,
+          "produto gravado com o uid da vendedora e a miniatura (%d caracteres)" % len(mini))
+    fotos = escritas(pg, "set", "products")
+    foto_grande = fotos[0]["dados"]["foto64"] if fotos else ""
+    checa(len(fotos) == 1 and fotos[0]["caminho"] == "products/%s/fotos/principal" % grav[0]["id"]
+          and set(fotos[0]["dados"].keys()) == {"foto64", "brecoOwner"} and fotos[0]["dados"]["brecoOwner"] == "uid-teste"
+          and foto_grande.startswith("data:image/jpeg;base64,") and len(mini) < len(foto_grande) <= LIMITE_FOTO,
+          "foto grande gravada no documento proprio, depois do produto (%d caracteres)" % len(foto_grande))
+    tamanhos = pg.evaluate("""src => new Promise(ok => { const i = new Image(); i.onload = () => ok([i.naturalWidth, i.naturalHeight]); i.src = src; })""", mini)
+    checa(max(tamanhos) == 128, "miniatura tem 128px no lado maior (%s)" % tamanhos)
 
     # copiar: aviso e confirmacao em cima do botao
     pg.click("[data-action='copiar']")
@@ -494,6 +597,27 @@ def fluxo_principal(b, url, saida):
     checa(pg.evaluate("document.querySelector('[data-action=copiar]').classList.contains('ok')"), "botao de copiar confirma em cima dele")
     espera(pg, "!document.getElementById('toast').classList.contains('on')", timeout=6000)
     chega(pg, "getComputedStyle(document.getElementById('toast')).opacity === '0'", "aviso flutuante some no fim")
+
+    # compartilhar: com a folha do celular vai texto e foto; cancelado e sem folha tambem avisam
+    pg.evaluate("window.__compartilhados.length = 0")
+    pg.click("#btnShareWpp")
+    espera(pg, "window.__compartilhados.length === 1")
+    comp = pg.evaluate("window.__compartilhados[0]")
+    arq = comp["arquivos"][0] if comp["arquivos"] else {}
+    checa(comp["text"] == msg and arq.get("bytes") == bytes_da_data_url(foto_grande) and arq.get("tipo") == "image/jpeg",
+          "compartilhar manda a mensagem e a foto grande (%s bytes)" % arq.get("bytes"))
+    checa("Compartilhado com a foto" in pg.inner_text("#toast") and not pg.is_disabled("#btnShareWpp"), "compartilhar confirma com aviso e o botao volta")
+    pg.evaluate("window.__shareErro = 'AbortError'")
+    pg.click("#btnShareWpp")
+    pg.wait_for_timeout(300)
+    checa("cancelado" in pg.inner_text("#toast"), "compartilhamento cancelado pela vendedora: aviso, sem abrir nada")
+    pg.evaluate("window.__shareErro = null; delete navigator.share; delete navigator.canShare")
+    pg.click("#btnShareWpp")
+    pg.wait_for_timeout(300)
+    aberturas = pg.evaluate("window.__aberturas")
+    checa(len(aberturas) == 1 and aberturas[0].startswith("https://wa.me/?text=") and "Abrindo o WhatsApp" in pg.inner_text("#toast"),
+          "sem folha de compartilhar (computador): abre o WhatsApp com o texto e avisa")
+    pg.evaluate("window.__aberturas.length = 0; window.__compartilhados.length = 0")
 
     # historico + busca por codigo
     pg.click("#tabHistorico")
@@ -651,13 +775,23 @@ def fluxo_principal(b, url, saida):
     pg.wait_for_timeout(500)
     checa(pg.is_hidden("#resultCard") and pg.is_hidden("#previewZone") and pg.input_value("#preco") == "", "anunciar outra peca limpa o formulario")
 
-    # sair volta pro login
+    # sair volta pro login e nao deixa nada da conta no aparelho
+    pg.click("#tabHistorico")
+    pg.fill("#histSearch", "abc")
+    pg.click("#tabAnuncio")
     pg.click("#btnConfig")
     pg.click("[data-action='sair']")
     pg.wait_for_timeout(400)
     checa(pg.is_visible("#loginScreen") and pg.is_hidden("#appWrapper"), "sair volta pro login")
     checa(pg.get_attribute("#btnConfig", "aria-expanded") == "false" and pg.get_attribute("#tabAnuncio", "aria-selected") == "true",
           "sair fecha as configuracoes e volta pra aba anunciar")
+    restos = pg.evaluate("""() => ({ email: document.getElementById('loggedEmail').textContent, lista: document.getElementById('histList').innerHTML,
+        busca: document.getElementById('histSearch').value, tel: document.getElementById('telefone').value, meuTel: document.getElementById('meuTel').value,
+        cfg: localStorage.getItem('brecho_cfg_v2'), sessao: localStorage.getItem('luxus-sessao'), loginEmail: document.getElementById('loginEmail').value,
+        cont: document.getElementById('cntVend').textContent, badge: document.getElementById('pendBadge').textContent, tema: localStorage.getItem('luxus-tema') })""")
+    checa(all(not restos[k] for k in ("email", "lista", "busca", "tel", "meuTel", "cfg", "sessao", "loginEmail")) and restos["cont"] == "0" and restos["badge"] == "0",
+          "sair limpa email, historico, busca, configuracoes e contadores (%s)" % json.dumps({k: v for k, v in restos.items() if v}))
+    checa(restos["tema"] == "escuro", "sair deixa o tema, que nao e da conta")
     ctx.close()
     return cod, pedido
 
@@ -670,6 +804,9 @@ def outras_larguras(b, url, saida):
         pg.goto(url)
         pg.wait_for_timeout(1200)
         checa(sem_rolagem(pg), "%dpx: login sem rolagem horizontal" % largura)
+        pg.wait_for_timeout(2200)
+        sobra = sem_sobreposicao(pg)
+        checa(sobra == 0, "%dpx: nenhuma polaroid cobre o titulo nem as frases do login (sobreposicao de %d px)" % (largura, sobra))
         foto(pg, saida / ("10-login-%d.png" % largura))
         entra(pg)
         pg.click("#btnConfig")
@@ -826,6 +963,107 @@ def movimento_reduzido(b, url, saida):
     ctx.close()
 
 
+def integridade(b, url):
+    """SRI de verdade: a pagina original (hashes do SDK publicado) recebendo o
+    stub no lugar do SDK e um modulo adulterado. O navegador tem que bloquear e
+    o app nao pode rodar."""
+    ctx = contexto(b, url)
+    ctx.route(url, lambda r: r.fulfill(status=200, content_type="text/html; charset=utf-8", body=INDEX_ORIGINAL))
+    pg = ctx.new_page()
+    mensagens = []
+    pg.on("console", lambda m: mensagens.append(m.text))
+    pg.on("pageerror", lambda e: mensagens.append(str(e)))
+    pg.goto(url)
+    pg.wait_for_timeout(3000)
+    rodou = pg.evaluate("!!window.__config")
+    bloqueou = [m for m in mensagens if "integrity" in m.lower()]
+    checa(not rodou and bloqueou, "modulo do SDK com hash diferente do index.html: o navegador bloqueia e o app nao roda (%s)"
+          % (bloqueou[0][:110] if bloqueou else "nenhuma mensagem de integridade"))
+    checa(pg.is_visible("#loginScreen"), "com o SDK bloqueado a tela de login continua visivel, nao fica tela vazia")
+    ctx.close()
+
+
+def app_check(b, url):
+    """Com a chave do reCAPTCHA preenchida em APP_CHECK, o modulo entra por tag
+    de script com integrity e o App Check e montado antes do Auth. Com o hash
+    errado, o modulo e bloqueado e o app segue sem App Check."""
+    assert "siteKey: ''" in APP_JS and "integridade: 'sha384-" in APP_JS, "APP_CHECK em app.js mudou de forma"
+    com_chave = re.sub(r"integridade: 'sha384-[^']+'", "integridade: '%s'" % HASH_STUB, APP_JS.replace("siteKey: ''", "siteKey: 'chave-recaptcha-de-teste'"))
+    pedidos = []
+    ctx = contexto(b, url, pedidos)
+    ctx.route(url + "app.js", lambda r: r.fulfill(status=200, content_type="text/javascript", body=com_chave))
+    pg = ctx.new_page()
+    vigia(pg)
+    pg.goto(url)
+    espera(pg, "!!window.__appCheck", timeout=10000)
+    ac = pg.evaluate("window.__appCheck")
+    checa(ac["chave"] == "chave-recaptcha-de-teste" and ac["renova"] is True, "com a chave, o App Check e montado com o reCAPTCHA v3 e renovacao automatica")
+    link = pg.evaluate("""() => { const l = document.querySelector('script[type=module][src*="app-check"]'); return l && [l.integrity, l.crossOrigin]; }""")
+    checa(link and link[0].startswith("sha384-") and link[1] == "anonymous", "o modulo do App Check entra por script type=module com integrity e crossorigin anonymous")
+    checa(sum(1 for u in pedidos if "firebase-app-check.js" in u) >= 1, "o modulo do App Check e baixado da pasta do Firebase no CDN")
+    entra(pg)
+    checa(pg.is_visible("#appWrapper"), "o login continua funcionando com o App Check ligado")
+    ctx.close()
+
+    # modulo do App Check adulterado (hash errado): bloqueado, e o app segue sem ele
+    hash_errado = re.sub(r"integridade: 'sha384-[^']+'", "integridade: 'sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'",
+                         APP_JS.replace("siteKey: ''", "siteKey: 'chave-recaptcha-de-teste'"))
+    ctx = contexto(b, url)
+    ctx.route(url + "app.js", lambda r: r.fulfill(status=200, content_type="text/javascript", body=hash_errado))
+    pg = ctx.new_page()
+    mensagens = []
+    pg.on("console", lambda m: mensagens.append(m.text))
+    pg.on("pageerror", lambda e: mensagens.append(str(e)))
+    pg.goto(url)
+    espera(pg, "!!window.__authCb", timeout=10000)
+    checa(pg.evaluate("window.__appCheck") is None and any("integrity" in m.lower() for m in mensagens),
+          "modulo do App Check com hash errado: bloqueado pelo navegador, e o app abre o login mesmo assim")
+    ctx.close()
+
+
+def salvando_nao_prende(b, url):
+    """Sem internet o Firestore deixa a gravacao pendurada. Depois de 10 s a tela
+    tem que dizer que esta aguardando, e confirmar quando a gravacao chegar."""
+    ctx = contexto(b, url)
+    pg = ctx.new_page()
+    vigia(pg)
+    pg.goto(url)
+    pg.wait_for_timeout(500)
+    entra(pg)
+    pg.evaluate("document.getElementById('telefone').value = '5511900000000'; document.getElementById('preco').value = '30'; window.__seguraAdd = true")
+    pg.click("#btnGerar")
+    pg.wait_for_timeout(600)
+    checa("salvando no histórico" in pg.inner_text("#resultStatus"), "gravacao presa: comeca em 'salvando'")
+    pg.click("#tabHistorico")
+    pg.wait_for_timeout(400)
+    checa("Salvando no histórico" in pg.inner_text("#histList"), "gravacao presa: o cartao diz 'salvando'")
+    espera(pg, "document.getElementById('resultStatus').textContent.includes('internet voltar')", timeout=14000)
+    checa("Aguardando internet" in pg.inner_text("#histList") and "ainda não foi salvo" in pg.inner_text("#toast"),
+          "depois de 10 s: cartao e aviso dizem que esta aguardando internet, nada fica preso em 'salvando'")
+    checa(pg.evaluate("document.getElementById('resultCard').classList.contains('falhou')"), "o topo do resultado muda de cor enquanto aguarda")
+    pg.evaluate("window.__soltaAdd()")
+    chega(pg, "document.getElementById('resultStatus').textContent === 'Anúncio pronto e salvo no histórico' && !document.querySelector('#histList .hist-saving')",
+          "quando a gravacao chega, vira 'salvo' e o cartao ganha os botoes")
+    checa("sincronizou" in pg.inner_text("#toast"), "e avisa que sincronizou")
+    ctx.close()
+
+
+def login_em_outros_iphones(b, p, url, saida):
+    """A tela de login nos outros perfis do motor (iPhone SE no WebKit): nada cobre o titulo."""
+    for nome in APARELHOS_LOGIN[estado["motor"]][1:]:
+        perfil = {k: v for k, v in p.devices[nome].items() if k != "default_browser_type"}
+        ctx = contexto(b, url, **perfil)
+        pg = ctx.new_page()
+        vigia(pg)
+        pg.goto(url)
+        pg.wait_for_timeout(3400)
+        sobra = sem_sobreposicao(pg)
+        checa(sobra == 0, "%s: nenhuma polaroid cobre o titulo nem as frases do login (sobreposicao de %d px)" % (nome, sobra))
+        checa(sem_rolagem(pg), "%s: login sem rolagem horizontal" % nome)
+        foto(pg, saida / ("13-login-%s.png" % nome.lower().replace(" ", "-")))
+        ctx.close()
+
+
 PERFIS = {}
 
 
@@ -840,9 +1078,13 @@ def roda(url, saida_base, motores):
             b = getattr(p, motor).launch()
             cod, pedido = fluxo_principal(b, url, saida)
             outras_larguras(b, url, saida)
+            login_em_outros_iphones(b, p, url, saida)
             anuncio_seguido(b, url)
             abertura_sem_piscar(b, url)
             movimento_reduzido(b, url, saida)
+            integridade(b, url)
+            app_check(b, url)
+            salvando_nao_prende(b, url)
             b.close()
             extra[motor] = {"codigo": cod.group(1) if cod else None, "pedido": pedido}
     return extra
