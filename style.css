@@ -1417,6 +1417,17 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; marg
   .ramo { width: 280px; height: 280px; }
 }
 /* celular estreito: os dois botões lado a lado do histórico cabem numa linha só */
+/* celular: as polaroids de cima ficam nos cantos, acima do nome da loja, que ocupa
+   quase toda a largura; as de baixo seguem abaixo do cartao. Sem isso a 'floral'
+   cobria o L de Luxus e a 'jeans' encostava no o com acento no iPhone. */
+@media (max-width: 480px) {
+  .pola { width: 86px; }
+  .pola-3, .pola-4 { width: 78px; }
+  .pola-1 { top: -22px; left: -34px; }
+  .pola-2 { top: -18px; right: -30px; }
+  .pola-3 { bottom: 17%; }
+  .pola-4 { bottom: 11%; }
+}
 @media (max-width: 380px) {
   .grid-2 > .btn { padding-left: 10px; padding-right: 10px; gap: 6px; font-size: .9rem; }
 }
